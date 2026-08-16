@@ -40,14 +40,14 @@ async def init_db():
             await db.execute("ALTER TABLE products ADD COLUMN photo_file_id TEXT")
         except Exception:
             pass
-            try:
-    await db.execute("ALTER TABLE products ADD COLUMN description_en TEXT")
-except Exception:
-    pass
-try:
-    await db.execute("ALTER TABLE products ADD COLUMN description_de TEXT")
-except Exception:
-    pass
+        try:
+            await db.execute("ALTER TABLE products ADD COLUMN description_en TEXT")
+        except Exception:
+            pass
+        try:
+            await db.execute("ALTER TABLE products ADD COLUMN description_de TEXT")
+        except Exception:
+            pass
         await db.execute("""
             CREATE TABLE IF NOT EXISTS orders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -123,15 +123,6 @@ async def use_discount(user_id: int):
         await db.commit()
 
 
-async def increment_purchases(user_id: int):
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute(
-            "UPDATE users SET purchases_count = purchases_count + 1 WHERE user_id = ?",
-            (user_id,)
-        )
-        await db.commit()
-
-
 async def get_all_products(only_available: bool = True) -> List[Dict[str, Any]]:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
@@ -176,12 +167,6 @@ async def update_product(product_id: int, **kwargs):
         await db.commit()
 
 
-async def delete_product(product_id: int):
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("DELETE FROM products WHERE id = ?", (product_id,))
-        await db.commit()
-
-
 async def create_order(user_id: int, product_id: int, used_discount: bool = False) -> int:
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
@@ -203,7 +188,6 @@ async def complete_order(order_id: int):
             order = dict(order)
 
         await db.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (order_id,))
-        
         await db.execute(
             "UPDATE users SET purchases_count = purchases_count + 1 WHERE user_id = ?",
             (order["user_id"],)
@@ -228,7 +212,6 @@ async def complete_order(order_id: int):
                             "UPDATE users SET has_discount = 1, successful_referrals = 0 WHERE user_id = ?",
                             (referrer_id,)
                         )
-
         await db.commit()
         return True
 
