@@ -126,7 +126,7 @@ async def show_product(callback: CallbackQuery, lang: str):
     text = get_text(
         lang, "product_card",
         name=product["name"],
-        description=(product.get("description_en") if lang == "en" else product.get("description_de") if lang == "de" else product.get("description")) or "",
+        description=product["description"] or "",
         volume=product["volume"] or "—",
         strength=product["strength"] or "—",
         price=price_str
@@ -169,7 +169,7 @@ async def buy_product(callback: CallbackQuery, bot: Bot, lang: str):
         await use_discount(callback.from_user.id)
         used_discount = True
 
-    order_id = await create_order(callback.from_user.id, product_id, used_discount)
+    await create_order(callback.from_user.id, product_id, used_discount)
 
     name = callback.from_user.full_name or "—"
     username = callback.from_user.username or "—"
