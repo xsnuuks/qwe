@@ -26,8 +26,6 @@ async def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
                 description TEXT,
-                description_en TEXT,
-                description_de TEXT,
                 price REAL DEFAULT 15,
                 volume TEXT,
                 strength TEXT,
@@ -38,14 +36,6 @@ async def init_db():
         """)
         try:
             await db.execute("ALTER TABLE products ADD COLUMN photo_file_id TEXT")
-        except Exception:
-            pass
-        try:
-            await db.execute("ALTER TABLE products ADD COLUMN description_en TEXT")
-        except Exception:
-            pass
-        try:
-            await db.execute("ALTER TABLE products ADD COLUMN description_de TEXT")
         except Exception:
             pass
         await db.execute("""
@@ -143,15 +133,14 @@ async def get_product(product_id: int) -> Optional[Dict[str, Any]]:
             return dict(row) if row else None
 
 
-async def add_product(name: str, description: str = "", description_en: str = "",
-                      description_de: str = "", price: float = 15,
+async def add_product(name: str, description: str = "", price: float = 15,
                       volume: str = "30ML", strength: str = "50MG",
                       photo_file_id: str = None) -> int:
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
-            """INSERT INTO products (name, description, description_en, description_de, price, volume, strength, photo_file_id, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (name, description, description_en, description_de, price, volume, strength, photo_file_id, datetime.now().isoformat())
+            """INSERT INTO products (name, description, price, volume, strength, photo_file_id, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (name, description, price, volume, strength, photo_file_id, datetime.now().isoformat())
         )
         await db.commit()
         return cursor.lastrowid
