@@ -30,6 +30,7 @@ class AddProductState(StatesGroup):
     volume = State()
     strength = State()
     price = State()
+    photo = State()
 
 
 class AddReferralState(StatesGroup):
@@ -173,13 +174,28 @@ async def process_product_price(message: Message, state: FSMContext, lang: str):
         await message.answer("Введите число, например 15")
         return
 
+    await state.update_data(price=price)
+    await message.answer("Отправьте фото товара (или напишите «-» чтобы пропустить):")
+    await state.set_state(AddProductState.photo)
+
+
+@router.message(AddProductState.photo, IsAdmin())
+async def process_product_photo(message: Message, state: FSMContext, lang: str):
+    photo_file_id = None
+    if message.photo:
+        photo_file_id = message.photo[-1].file_id
+    elif message.text and message.text.strip() != "-":
+        await message.answer("Отправьте фото или напишите «-»")
+        return
+
     data = await state.get_data()
     product_id = await add_product(
         name=data["name"],
         description=data.get("description", ""),
-        price=price,
+        price=data["price"],
         volume=data.get("volume", "30ML"),
-        strength=data.get("strength", "50MG")
+        strength=data.get("strength", "50MG"),
+        photo_file_id=photo_file_id
     )
     await state.clear()
     await message.answer(
