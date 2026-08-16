@@ -126,7 +126,7 @@ async def show_product(callback: CallbackQuery, lang: str):
     text = get_text(
         lang, "product_card",
         name=product["name"],
-        description=product["description"] or "",
+        description=(product.get("description_en") if lang == "en" else product.get("description_de") if lang == "de" else product.get("description")) or "",
         volume=product["volume"] or "—",
         strength=product["strength"] or "—",
         price=price_str
