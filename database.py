@@ -29,10 +29,15 @@ async def init_db():
                 price REAL DEFAULT 15,
                 volume TEXT,
                 strength TEXT,
+                photo_file_id TEXT,
                 is_available INTEGER DEFAULT 1,
                 created_at TEXT
             )
         """)
+        try:
+            await db.execute("ALTER TABLE products ADD COLUMN photo_file_id TEXT")
+        except Exception:
+            pass
         await db.execute("""
             CREATE TABLE IF NOT EXISTS orders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -138,12 +143,13 @@ async def get_product(product_id: int) -> Optional[Dict[str, Any]]:
 
 
 async def add_product(name: str, description: str = "", price: float = 15,
-                      volume: str = "30ML", strength: str = "50MG") -> int:
+                      volume: str = "30ML", strength: str = "50MG",
+                      photo_file_id: str = None) -> int:
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
-            """INSERT INTO products (name, description, price, volume, strength, created_at)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (name, description, price, volume, strength, datetime.now().isoformat())
+            """INSERT INTO products (name, description, price, volume, strength, photo_file_id, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (name, description, price, volume, strength, photo_file_id, datetime.now().isoformat())
         )
         await db.commit()
         return cursor.lastrowid
