@@ -192,7 +192,12 @@ async def buy_product(callback: CallbackQuery, bot: Bot, lang: str):
     except Exception:
         pass
 
-    await callback.message.edit_text(
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+
+    await callback.message.answer(
         get_text(lang, "buy_request_sent"),
         parse_mode="HTML"
     )
