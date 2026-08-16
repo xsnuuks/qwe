@@ -32,7 +32,6 @@ async def cmd_start(message: Message, command: CommandObject, bot: Bot, lang: st
     username = message.from_user.username
     full_name = message.from_user.full_name or ""
 
-    # Handle referral
     referrer_id = None
     if command.args and command.args.startswith("ref_"):
         try:
@@ -45,14 +44,12 @@ async def cmd_start(message: Message, command: CommandObject, bot: Bot, lang: st
     existing = await get_user(user_id)
     if not existing:
         await create_user(user_id, username, full_name, "ru", referrer_id)
-        # First time — choose language
         await message.answer(
             get_text("ru", "choose_language"),
             reply_markup=language_keyboard()
         )
         return
 
-    # Existing user
     lang = existing["language"]
     if referrer_id and not existing.get("referrer_id"):
         await set_referrer(user_id, referrer_id)
@@ -134,11 +131,25 @@ async def show_product(callback: CallbackQuery, lang: str):
         strength=product["strength"] or "—",
         price=price_str
     )
-    await callback.message.edit_text(
-        text,
-        reply_markup=product_keyboard(lang, product_id),
-        parse_mode="HTML"
-    )
+
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+
+    if product.get("photo_file_id"):
+        await callback.message.answer_photo(
+            photo=product["photo_file_id"],
+            caption=text,
+            reply_markup=product_keyboard(lang, product_id),
+            parse_mode="HTML"
+        )
+    else:
+        await callback.message.answer(
+            text,
+            reply_markup=product_keyboard(lang, product_id),
+            parse_mode="HTML"
+        )
     await callback.answer()
 
 
@@ -160,7 +171,6 @@ async def buy_product(callback: CallbackQuery, bot: Bot, lang: str):
 
     order_id = await create_order(callback.from_user.id, product_id, used_discount)
 
-    # Notify admin
     name = callback.from_user.full_name or "—"
     username = callback.from_user.username or "—"
     discount_text = "Да (10€)" if used_discount else "Нет"
@@ -246,7 +256,7 @@ async def support_message(message: Message, state: FSMContext, bot: Bot, lang: s
         text=text
     )
     try:
-        sent = await bot.send_message(
+        await bot.send_message(
             ADMIN_ID,
             admin_text + "\n\n" + get_text("ru", "reply_hint"),
             parse_mode="HTML"
@@ -258,10 +268,8 @@ async def support_message(message: Message, state: FSMContext, bot: Bot, lang: s
     await state.clear()
 
 
-# Catch-all for free messages to admin (when not in state)
 @router.message(F.chat.type == "private", F.from_user.id != ADMIN_ID)
 async def forward_to_admin(message: Message, bot: Bot, lang: str):
-    # Skip if it's a menu button
     menu_texts = [
         "🛍 Каталог", "🛍 Catalog", "🛍 Katalog",
         "👤 Профиль", "👤 Profile", "👤 Profil",
