@@ -27,8 +27,6 @@ class IsAdmin(Filter):
 class AddProductState(StatesGroup):
     name = State()
     description = State()
-    description_en = State()
-    description_de = State()
     volume = State()
     strength = State()
     price = State()
@@ -171,24 +169,9 @@ async def process_product_name(message: Message, state: FSMContext, lang: str):
 async def process_product_desc(message: Message, state: FSMContext, lang: str):
     desc = message.text if message.text != "-" else ""
     await state.update_data(description=desc)
-    await message.answer("Введите описание на английском (или «-»):")
-    await state.set_state(AddProductState.description_en)
-
-
-@router.message(AddProductState.description_en, IsAdmin())
-async def process_product_desc_en(message: Message, state: FSMContext, lang: str):
-    desc = message.text if message.text != "-" else ""
-    await state.update_data(description_en=desc)
-    await message.answer("Введите описание на немецком (или «-»):")
-    await state.set_state(AddProductState.description_de)
-
-
-@router.message(AddProductState.description_de, IsAdmin())
-async def process_product_desc_de(message: Message, state: FSMContext, lang: str):
-    desc = message.text if message.text != "-" else ""
-    await state.update_data(description_de=desc)
     await message.answer(get_text(lang, "enter_product_volume"))
     await state.set_state(AddProductState.volume)
+
 
 @router.message(AddProductState.volume, IsAdmin())
 async def process_product_volume(message: Message, state: FSMContext, lang: str):
@@ -227,7 +210,7 @@ async def process_product_photo(message: Message, state: FSMContext, lang: str):
         return
 
     data = await state.get_data()
-    product_id = await add_product(
+    await add_product(
         name=data["name"],
         description=data.get("description", ""),
         price=data["price"],
