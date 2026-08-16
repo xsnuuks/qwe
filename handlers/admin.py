@@ -7,7 +7,7 @@ from aiogram.filters import Filter
 from config import ADMIN_ID
 from database import (
     get_stats, get_pending_orders, complete_order, get_all_products,
-    add_product, get_user, increment_referrals
+    add_product, get_user, increment_referrals, get_product, update_product
 )
 from keyboards import (
     admin_menu_keyboard, products_admin_keyboard,
@@ -128,6 +128,27 @@ async def admin_products(callback: CallbackQuery, lang: str):
             reply_markup=products_admin_keyboard(lang, products)
         )
     await callback.answer()
+
+
+@router.callback_query(F.data.startswith("admin_toggle_"), IsAdmin())
+async def admin_toggle_product(callback: CallbackQuery, lang: str):
+    product_id = int(callback.data.split("_")[2])
+    product = await get_product(product_id)
+    if not product:
+        await callback.answer("Not found", show_alert=True)
+        return
+
+    new_status = 0 if product["is_available"] else 1
+    await update_product(product_id, is_available=new_status)
+    
+    status_text = "в наличии ✅" if new_status else "нет в наличии ❌"
+    await callback.answer(f"{product['name']} — {status_text}")
+
+    products = await get_all_products(only_available=False)
+    await callback.message.edit_text(
+        get_text(lang, "admin_products"),
+        reply_markup=products_admin_keyboard(lang, products)
+    )
 
 
 @router.callback_query(F.data == "admin_add_product", IsAdmin())
