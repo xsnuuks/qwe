@@ -95,7 +95,7 @@ def products_admin_keyboard(lang: str, products: list) -> InlineKeyboardMarkup:
         builder.row(
             InlineKeyboardButton(
                 text=f"{status} {p['name']}",
-                callback_data=f"admin_product_{p['id']}"
+                callback_data=f"admin_toggle_{p['id']}"
             )
         )
     builder.row(
