@@ -1,0 +1,35 @@
+TEXTS = {
+    "choose_language": "Выберите язык / Choose language / Sprache wählen:",
+    "language_set": "Sprache eingestellt: Deutsch 🇩🇪",
+    "welcome": (
+        "Willkommen bei <b>MONO</b>.\n\n"
+        "Minimalismus. Qualität. Nur bewährte Liquids.\n\n"
+        "Öffnen Sie den Katalog oder kontaktieren Sie uns."
+    ),
+    "main_menu": "Hauptmenü",
+    "catalog": "🛍 Katalog",
+    "profile": "👤 Profil",
+    "referral": "🔗 Empfehlungsprogramm",
+    "rules": "📜 Regeln",
+    "support": "💬 Support",
+    "change_lang": "🌐 Sprache",
+    "back": "◀️ Zurück",
+    "no_products": "Der Katalog ist derzeit leer.",
+    "buy": "🛒 Ich möchte kaufen",
+    "buy_request_sent": "✅ Anfrage gesendet!\n\nEin Administrator wird sich in Kürze melden.\n\nStädte: <b>Reutlingen</b> und <b>Pfullingen</b>.",
+    "profile_text": "<b>Dein Profil</b>\n\n🛒 Käufe: <b>{purchases}</b>\n👥 Freunde: <b>{referrals}</b>\n📊 Bis Rabatt: <b>{progress}/2</b>\n🏷 Rabatt: <b>{discount_status}</b>",
+    "discount_yes": "Aktiv (10€)",
+    "discount_no": "Keiner",
+    "referral_text": "<b>Empfehlungsprogramm</b>\n\nLade 2 Freunde ein — und erhalte Liquid für <b>10€</b>.\n\nDein Link:\n<code>{link}</code>",
+    "rules_text": "<b>MONO Regeln</b>\n\n(Правила будут на немецком позже)",
+    "support_text": "Schreiben Sie Ihre Nachricht — ein Administrator wird antworten.",
+    "support_sent": "✅ Nachricht gesendet.",
+    "admin_menu": "🔧 Admin-Panel",
+    "admin_stats": "📊 Statistik",
+    "admin_orders": "📋 Bestellungen",
+    "admin_products": "🛍 Produkte",
+    "admin_add_product": "➕ Produkt hinzufügen",
+    "admin_add_referral": "👥 Empfehlung gutschreiben",
+    "back": "◀️ Zurück",
+    "message_from_admin": "💬 <b>Antwort von MONO:</b>\n\n{text}",
+}
