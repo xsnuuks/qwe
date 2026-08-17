@@ -5,7 +5,7 @@ from database import get_user
 
 
 class LanguageMiddleware(BaseMiddleware):
-        async def __call__(
+async def __call__(
         self,
         handler: Callable[[Message | CallbackQuery, Dict[str, Any]], Awaitable[Any]],
         event: Message | CallbackQuery,
@@ -15,7 +15,7 @@ class LanguageMiddleware(BaseMiddleware):
         if user:
             db_user = await get_user(user.id)
             if db_user and db_user.get("is_blocked"):
-                return  # просто молчим
+                return
             data["lang"] = db_user["language"] if db_user else "ru"
         else:
             data["lang"] = "ru"
