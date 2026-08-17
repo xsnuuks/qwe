@@ -7,7 +7,8 @@ from aiogram.filters import Filter
 from config import ADMIN_ID
 from database import (
     get_stats, get_pending_orders, complete_order, get_all_products,
-    add_product, get_user, increment_referrals, get_product, update_product
+    add_product, get_user, increment_referrals, get_product, update_product,
+    get_all_user_ids
 )
 from keyboards import (
     admin_menu_keyboard, products_admin_keyboard,
@@ -35,6 +36,8 @@ class AddProductState(StatesGroup):
 
 class AddReferralState(StatesGroup):
     user_id = State()
+class BroadcastState(StatesGroup):
+    message = State()
 
 
 @router.message(F.text.in_(["🔧 Админ-панель", "🔧 Admin panel", "🔧 Admin-Panel"]), IsAdmin())
@@ -278,3 +281,35 @@ async def admin_reply_to_user(message: Message, bot: Bot, lang: str):
         await message.answer("✅ Отправлено клиенту")
     except Exception as e:
         await message.answer(f"❌ Не удалось отправить: {e}")
+
+
+@router.callback_query(F.data == "admin_broadcast", IsAdmin())
+async def admin_broadcast_start(callback: CallbackQuery, state: FSMContext, lang: str):
+    await callback.message.edit_text("Введите текст рассылки:")
+    await state.set_state(BroadcastState.message)
+    await callback.answer()
+
+
+@router.message(BroadcastState.message, IsAdmin())
+async def process_broadcast(message: Message, state: FSMContext, bot: Bot, lang: str):
+    text = message.text
+    if not text:
+        await message.answer("Нужен текст")
+        return
+
+    user_ids = await get_all_user_ids()
+    success = 0
+    fail = 0
+
+    for uid in user_ids:
+        try:
+            await bot.send_message(uid, text)
+            success += 1
+        except Exception:
+            fail += 1
+
+    await state.clear()
+    await message.answer(
+        f"✅ Рассылка завершена\nУспешно: {success}\nНе доставлено: {fail}",
+        reply_markup=main_menu_keyboard(lang, is_admin=True)
+    )
