@@ -167,7 +167,10 @@ async def admin_add_product_start(callback: CallbackQuery, state: FSMContext, la
 @router.message(AddProductState.name, IsAdmin())
 async def process_product_name(message: Message, state: FSMContext, lang: str):
     await state.update_data(name=message.text)
-    await message.answer(get_text(lang, "enter_product_desc"))
+    await message.answer(
+    get_text(lang, "enter_product_desc"),
+    reply_markup=cancel_keyboard()
+)
     await state.set_state(AddProductState.description)
 
 
@@ -175,21 +178,30 @@ async def process_product_name(message: Message, state: FSMContext, lang: str):
 async def process_product_desc(message: Message, state: FSMContext, lang: str):
     desc = message.text if message.text != "-" else ""
     await state.update_data(description=desc)
-    await message.answer(get_text(lang, "enter_product_volume"))
+    await message.answer(
+    get_text(lang, "enter_product_volume"),
+    reply_markup=cancel_keyboard()
+)
     await state.set_state(AddProductState.volume)
 
 
 @router.message(AddProductState.volume, IsAdmin())
 async def process_product_volume(message: Message, state: FSMContext, lang: str):
     await state.update_data(volume=message.text)
-    await message.answer(get_text(lang, "enter_product_strength"))
+    await message.answer(
+    get_text(lang, "enter_product_strength"),
+    reply_markup=cancel_keyboard()
+)
     await state.set_state(AddProductState.strength)
 
 
 @router.message(AddProductState.strength, IsAdmin())
 async def process_product_strength(message: Message, state: FSMContext, lang: str):
     await state.update_data(strength=message.text)
-    await message.answer(get_text(lang, "enter_product_price"))
+    await message.answer(
+    get_text(lang, "enter_product_price"),
+    reply_markup=cancel_keyboard()
+)
     await state.set_state(AddProductState.price)
 
 
@@ -202,7 +214,10 @@ async def process_product_price(message: Message, state: FSMContext, lang: str):
         return
 
     await state.update_data(price=price)
-    await message.answer("Отправьте фото товара (или напишите «-» чтобы пропустить):")
+    await message.answer(
+    "Отправьте фото товара (или напишите «-» чтобы пропустить):",
+    reply_markup=cancel_keyboard()
+)
     await state.set_state(AddProductState.photo)
 
 
