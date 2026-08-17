@@ -82,7 +82,7 @@ def admin_menu_keyboard(lang: str) -> InlineKeyboardMarkup:
     builder.row(
         InlineKeyboardButton(text=get_text(lang, "admin_add_referral"), callback_data="admin_add_referral"),
     )
-        builder.row(
+    builder.row(
         InlineKeyboardButton(text=get_text(lang, "admin_broadcast"), callback_data="admin_broadcast"),
     )
     builder.row(
