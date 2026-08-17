@@ -20,6 +20,7 @@ async def init_db():
                 successful_referrals INTEGER DEFAULT 0,
                 purchases_count INTEGER DEFAULT 0,
                 has_discount INTEGER DEFAULT 0,
+                is_blocked INTEGER DEFAULT 0,
                 created_at TEXT
             )
         """)
@@ -38,6 +39,10 @@ async def init_db():
         """)
         try:
             await db.execute("ALTER TABLE products ADD COLUMN photo_file_id TEXT")
+        except Exception:
+            pass
+        try:
+            await db.execute("ALTER TABLE users ADD COLUMN is_blocked INTEGER DEFAULT 0")
         except Exception:
             pass
         await db.execute("""
