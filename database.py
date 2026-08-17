@@ -57,6 +57,16 @@ async def init_db():
                 FOREIGN KEY (product_id) REFERENCES products(id)
             )
         """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS cart (
+                user_id INTEGER,
+                product_id INTEGER,
+                quantity INTEGER DEFAULT 1,
+                PRIMARY KEY (user_id, product_id),
+                FOREIGN KEY (user_id) REFERENCES users(user_id),
+                FOREIGN KEY (product_id) REFERENCES products(id)
+            )
+        """)
         await db.commit()
 
 
@@ -270,5 +280,68 @@ async def get_users_page(page: int = 0, per_page: int = 5) -> List[Dict[str, Any
 async def get_users_count() -> int:
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute("SELECT COUNT(*) FROM users") as cursor:
+            row = await cursor.fetchone()
+            return row[0] if row else 0
+
+
+async def add_to_cart(user_id: int, product_id: int, quantity: int = 1):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            INSERT INTO cart (user_id, product_id, quantity)
+            VALUES (?, ?, ?)
+            ON CONFLICT(user_id, product_id) DO UPDATE SET quantity = quantity + ?
+        """, (user_id, product_id, quantity, quantity))
+        await db.commit()
+
+
+async def remove_from_cart(user_id: int, product_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "DELETE FROM cart WHERE user_id = ? AND product_id = ?",
+            (user_id, product_id)
+        )
+        await db.commit()
+
+
+async def update_cart_quantity(user_id: int, product_id: int, quantity: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        if quantity <= 0:
+            await db.execute(
+                "DELETE FROM cart WHERE user_id = ? AND product_id = ?",
+                (user_id, product_id)
+            )
+        else:
+            await db.execute(
+                "UPDATE cart SET quantity = ? WHERE user_id = ? AND product_id = ?",
+                (quantity, user_id, product_id)
+            )
+        await db.commit()
+
+
+async def get_cart(user_id: int) -> List[Dict[str, Any]]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("""
+            SELECT c.product_id, c.quantity, p.name, p.price, p.photo_file_id
+            FROM cart c
+            JOIN products p ON p.id = c.product_id
+            WHERE c.user_id = ?
+        """, (user_id,)) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+
+async def clear_cart(user_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM cart WHERE user_id = ?", (user_id,))
+        await db.commit()
+
+
+async def get_cart_count(user_id: int) -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT COALESCE(SUM(quantity), 0) FROM cart WHERE user_id = ?",
+            (user_id,)
+        ) as cursor:
             row = await cursor.fetchone()
             return row[0] if row else 0
