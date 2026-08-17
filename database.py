@@ -228,3 +228,12 @@ async def get_stats() -> Dict[str, Any]:
         async with db.execute("SELECT COUNT(*) FROM products WHERE is_available = 1") as c:
             products = (await c.fetchone())[0]
         return {"users": users, "orders": orders, "products": products}
+
+
+
+
+async def get_all_user_ids() -> List[int]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("SELECT user_id FROM users") as cursor:
+            rows = await cursor.fetchall()
+            return [row[0] for row in rows]
