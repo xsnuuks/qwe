@@ -39,7 +39,8 @@ class AddReferralState(StatesGroup):
     user_id = State()
 class BroadcastState(StatesGroup):
     message = State()
-
+class WriteUserState(StatesGroup):
+    message = State()
 
 @router.message(F.text.in_(["🔧 Админ-панель", "🔧 Admin panel", "🔧 Admin-Panel"]), IsAdmin())
 async def admin_panel(message: Message, lang: str):
