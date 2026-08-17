@@ -124,3 +124,10 @@ def back_keyboard(lang: str, callback: str = "back_main") -> InlineKeyboardMarku
         InlineKeyboardButton(text=get_text(lang, "back"), callback_data=callback)
     )
     return builder.as_markup()
+
+def cancel_keyboard(lang: str = "ru") -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="❌ Отмена", callback_data="admin_cancel")
+    )
+    return builder.as_markup()
