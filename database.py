@@ -6,7 +6,7 @@ DB_PATH = "/data/mono.db"
 
 
 async def init_db():
-        import os
+    import os
     os.makedirs("/data", exist_ok=True)
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("""
