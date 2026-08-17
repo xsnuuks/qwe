@@ -377,3 +377,35 @@ async def users_page(callback: CallbackQuery, lang: str):
         reply_markup=users_list_keyboard(users, page, total_pages)
     )
     await callback.answer()
+
+
+@router.callback_query(F.data.startswith("user_info_"), IsAdmin())
+async def user_info(callback: CallbackQuery, lang: str):
+    user_id = int(callback.data.split("_")[2])
+    user = await get_user(user_id)
+    if not user:
+        await callback.answer("Не найден", show_alert=True)
+        return
+
+    name = user.get("full_name") or "—"
+    username = f"@{user['username']}" if user.get("username") else "нет"
+    blocked = "Да 🚫" if user.get("is_blocked") else "Нет ✅"
+
+    text = (
+        f"👤 {name}\n"
+        f"Username: {username}\n"
+        f"ID: <code>{user_id}</code>\n"
+        f"Заблокирован: {blocked}"
+    )
+
+    builder = InlineKeyboardBuilder()
+    if user.get("is_blocked"):
+        builder.row(InlineKeyboardButton(text="✅ Разблокировать", callback_data=f"unblock_{user_id}"))
+    else:
+        builder.row(InlineKeyboardButton(text="🚫 Заблокировать", callback_data=f"block_{user_id}"))
+    
+    builder.row(InlineKeyboardButton(text="✉️ Написать", callback_data=f"write_{user_id}"))
+    builder.row(InlineKeyboardButton(text="🔙 Назад", callback_data="admin_users"))
+
+    await callback.message.edit_text(text, reply_markup=builder.as_markup(), parse_mode="HTML")
+    await callback.answer()
