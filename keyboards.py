@@ -86,6 +86,9 @@ def admin_menu_keyboard(lang: str) -> InlineKeyboardMarkup:
         InlineKeyboardButton(text=get_text(lang, "admin_broadcast"), callback_data="admin_broadcast"),
     )
     builder.row(
+        InlineKeyboardButton(text="👥 Пользователи", callback_data="admin_users"),
+    )
+    builder.row(
         InlineKeyboardButton(text=get_text(lang, "back"), callback_data="back_main")
     )
     return builder.as_markup()
