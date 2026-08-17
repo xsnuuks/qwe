@@ -12,7 +12,8 @@ from database import (
 )
 from keyboards import (
     admin_menu_keyboard, products_admin_keyboard,
-    order_actions_keyboard, main_menu_keyboard, back_keyboard
+    order_actions_keyboard, main_menu_keyboard, back_keyboard,
+    cancel_keyboard
 )
 from locales import get_text
 
@@ -155,7 +156,10 @@ async def admin_toggle_product(callback: CallbackQuery, lang: str):
 
 @router.callback_query(F.data == "admin_add_product", IsAdmin())
 async def admin_add_product_start(callback: CallbackQuery, state: FSMContext, lang: str):
-    await callback.message.edit_text(get_text(lang, "enter_product_name"))
+    await callback.message.edit_text(
+    get_text(lang, "enter_product_name"),
+    reply_markup=cancel_keyboard()
+)
     await state.set_state(AddProductState.name)
     await callback.answer()
 
@@ -229,7 +233,10 @@ async def process_product_photo(message: Message, state: FSMContext, lang: str):
 
 @router.callback_query(F.data == "admin_add_referral", IsAdmin())
 async def admin_add_referral_start(callback: CallbackQuery, state: FSMContext, lang: str):
-    await callback.message.edit_text(get_text(lang, "enter_user_id_referral"))
+    await callback.message.edit_text(
+    get_text(lang, "enter_user_id_referral"),
+    reply_markup=cancel_keyboard()
+)
     await state.set_state(AddReferralState.user_id)
     await callback.answer()
 
@@ -285,7 +292,10 @@ async def admin_reply_to_user(message: Message, bot: Bot, lang: str):
 
 @router.callback_query(F.data == "admin_broadcast", IsAdmin())
 async def admin_broadcast_start(callback: CallbackQuery, state: FSMContext, lang: str):
-    await callback.message.edit_text("Введите текст рассылки:")
+    await callback.message.edit_text(
+    "Введите текст рассылки:",
+    reply_markup=cancel_keyboard()
+)
     await state.set_state(BroadcastState.message)
     await callback.answer()
 
@@ -313,3 +323,12 @@ async def process_broadcast(message: Message, state: FSMContext, bot: Bot, lang:
         f"✅ Рассылка завершена\nУспешно: {success}\nНе доставлено: {fail}",
         reply_markup=main_menu_keyboard(lang, is_admin=True)
     )
+
+@router.callback_query(F.data == "admin_cancel", IsAdmin())
+async def admin_cancel_cb(callback: CallbackQuery, state: FSMContext, lang: str):
+    await state.clear()
+    await callback.message.edit_text(
+        get_text(lang, "admin_menu"),
+        reply_markup=admin_menu_keyboard(lang)
+    )
+    await callback.answer("Отменено")
