@@ -428,3 +428,30 @@ async def unblock_user(callback: CallbackQuery, lang: str):
     await callback.answer("Пользователь разблокирован")
     callback.data = f"user_info_{user_id}"
     await user_info(callback, lang)
+
+
+@router.callback_query(F.data.startswith("write_"), IsAdmin())
+async def write_user_start(callback: CallbackQuery, state: FSMContext, lang: str):
+    user_id = int(callback.data.split("_")[1])
+    await state.update_data(target_user_id=user_id)
+    await callback.message.edit_text(
+        "Введите сообщение пользователю:",
+        reply_markup=cancel_keyboard()
+    )
+    await state.set_state(WriteUserState.message)
+    await callback.answer()
+
+
+@router.message(WriteUserState.message, IsAdmin())
+async def write_user_send(message: Message, state: FSMContext, bot: Bot, lang: str):
+    data = await state.get_data()
+    target_id = data.get("target_user_id")
+    text = message.text
+
+    try:
+        await bot.send_message(target_id, f"📩 Сообщение от MONO:\n\n{text}")
+        await message.answer("✅ Отправлено")
+    except Exception as e:
+        await message.answer(f"❌ Не удалось отправить: {e}")
+
+    await state.clear()
