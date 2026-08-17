@@ -5,7 +5,7 @@ from database import get_user
 
 
 class LanguageMiddleware(BaseMiddleware):
-async def __call__(
+    async def __call__(
         self,
         handler: Callable[[Message | CallbackQuery, Dict[str, Any]], Awaitable[Any]],
         event: Message | CallbackQuery,
