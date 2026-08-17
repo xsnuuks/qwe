@@ -96,7 +96,6 @@ async def admin_orders(callback: CallbackQuery, lang: str):
         await callback.message.answer(
             text,
             reply_markup=order_actions_keyboard(lang, order["id"]),
-            parse_mode="HTML"
         )
     await callback.answer()
 
