@@ -409,3 +409,22 @@ async def user_info(callback: CallbackQuery, lang: str):
 
     await callback.message.edit_text(text, reply_markup=builder.as_markup(), parse_mode="HTML")
     await callback.answer()
+
+
+@router.callback_query(F.data.startswith("block_"), IsAdmin())
+async def block_user(callback: CallbackQuery, lang: str):
+    user_id = int(callback.data.split("_")[1])
+    await set_user_blocked(user_id, True)
+    await callback.answer("Пользователь заблокирован")
+    # Обновляем карточку
+    callback.data = f"user_info_{user_id}"
+    await user_info(callback, lang)
+
+
+@router.callback_query(F.data.startswith("unblock_"), IsAdmin())
+async def unblock_user(callback: CallbackQuery, lang: str):
+    user_id = int(callback.data.split("_")[1])
+    await set_user_blocked(user_id, False)
+    await callback.answer("Пользователь разблокирован")
+    callback.data = f"user_info_{user_id}"
+    await user_info(callback, lang)
