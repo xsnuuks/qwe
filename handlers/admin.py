@@ -347,3 +347,33 @@ async def admin_cancel_cb(callback: CallbackQuery, state: FSMContext, lang: str)
         reply_markup=admin_menu_keyboard(lang)
     )
     await callback.answer("Отменено")
+
+
+@router.callback_query(F.data == "admin_users", IsAdmin())
+async def admin_users(callback: CallbackQuery, lang: str):
+    page = 0
+    users = await get_users_page(page)
+    total = await get_users_count()
+    total_pages = max(1, (total + 4) // 5)
+
+    text = f"👥 Пользователи (стр. {page+1}/{total_pages})\nВсего: {total}"
+    await callback.message.edit_text(
+        text,
+        reply_markup=users_list_keyboard(users, page, total_pages)
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("users_page_"), IsAdmin())
+async def users_page(callback: CallbackQuery, lang: str):
+    page = int(callback.data.split("_")[2])
+    users = await get_users_page(page)
+    total = await get_users_count()
+    total_pages = max(1, (total + 4) // 5)
+
+    text = f"👥 Пользователи (стр. {page+1}/{total_pages})\nВсего: {total}"
+    await callback.message.edit_text(
+        text,
+        reply_markup=users_list_keyboard(users, page, total_pages)
+    )
+    await callback.answer()
