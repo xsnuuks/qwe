@@ -244,3 +244,31 @@ async def get_all_user_ids() -> List[int]:
         async with db.execute("SELECT user_id FROM users") as cursor:
             rows = await cursor.fetchall()
             return [row[0] for row in rows]
+
+
+async def set_user_blocked(user_id: int, blocked: bool = True):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE users SET is_blocked = ? WHERE user_id = ?",
+            (1 if blocked else 0, user_id)
+        )
+        await db.commit()
+
+
+async def get_users_page(page: int = 0, per_page: int = 5) -> List[Dict[str, Any]]:
+    offset = page * per_page
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT user_id, username, full_name, is_blocked FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            (per_page, offset)
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+
+async def get_users_count() -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("SELECT COUNT(*) FROM users") as cursor:
+            row = await cursor.fetchone()
+            return row[0] if row else 0
