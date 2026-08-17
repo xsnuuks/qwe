@@ -134,3 +134,32 @@ def cancel_keyboard(lang: str = "ru") -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="❌ Отмена", callback_data="admin_cancel")
     )
     return builder.as_markup()
+
+
+def users_list_keyboard(users: list, page: int, total_pages: int) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+
+    for u in users:
+        name = u.get("full_name") or "—"
+        username = f"@{u['username']}" if u.get("username") else "без юзера"
+        status = "🚫" if u.get("is_blocked") else "✅"
+        text = f"{status} {name} ({username})"
+        builder.row(
+            InlineKeyboardButton(
+                text=text,
+                callback_data=f"user_info_{u['user_id']}"
+            )
+        )
+
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton(text="←", callback_data=f"users_page_{page-1}"))
+    if page < total_pages - 1:
+        nav.append(InlineKeyboardButton(text="→", callback_data=f"users_page_{page+1}"))
+    if nav:
+        builder.row(*nav)
+
+    builder.row(
+        InlineKeyboardButton(text="🔙 Назад", callback_data="admin_menu")
+    )
+    return builder.as_markup()
