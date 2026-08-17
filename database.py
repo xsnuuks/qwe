@@ -2,7 +2,7 @@ import aiosqlite
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
-DB_PATH = "mono.db"
+DB_PATH = "/data/mono.db"
 
 
 async def init_db():
