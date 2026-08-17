@@ -13,7 +13,7 @@ from database import (
 from keyboards import (
     admin_menu_keyboard, products_admin_keyboard,
     order_actions_keyboard, main_menu_keyboard, back_keyboard,
-    cancel_keyboard
+    cancel_keyboard, users_list_keyboard
 )
 from locales import get_text
 
