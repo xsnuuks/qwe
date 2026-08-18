@@ -467,3 +467,94 @@ async def process_time(message: Message, state: FSMContext, lang: str):
     await state.update_data(time=message.text)
     await message.answer("💬 Комментарий к заказу (или «-»):")
     await state.set_state(CheckoutState.comment)
+
+
+@router.message(CheckoutState.comment)
+async def process_comment(message: Message, state: FSMContext, bot: Bot, lang: str):
+    comment = message.text if message.text != "-" else "—"
+    data = await state.get_data()
+    cart = await get_cart(message.from_user.id)
+
+    if not cart:
+        await message.answer("Корзина пуста")
+        await state.clear()
+        return
+
+    total = sum(item["price"] * item["quantity"] for item in cart)
+    city = data.get("city", "")
+    place = data.get("place", "")
+    time = data.get("time", "")
+
+    text = "🛒 Ваш заказ\n\n"
+    for item in cart:
+        text += f"• {item['name']} × {item['quantity']} = {item['price'] * item['quantity']}€\n"
+    text += f"\nИтого: {total}€\n"
+    text += f"📍 {city}"
+    if place:
+        text += f", {place}"
+    text += f"\n🕒 {time}\n💬 {comment}\n\nВсё верно?"
+
+    await state.update_data(comment=comment)
+    await message.answer(
+        text,
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Подтвердить заказ", callback_data="cart_confirm")],
+            [InlineKeyboardButton(text="❌ Отмена", callback_data="cart_cancel")]
+        ])
+    )
+
+
+@router.callback_query(F.data == "cart_confirm")
+async def cart_confirm(callback: CallbackQuery, state: FSMContext, bot: Bot, lang: str):
+    data = await state.get_data()
+    cart = await get_cart(callback.from_user.id)
+    user = callback.from_user
+
+    if not cart:
+        await callback.answer("Корзина пуста", show_alert=True)
+        await state.clear()
+        return
+
+    total = sum(item["price"] * item["quantity"] for item in cart)
+    city = data.get("city", "")
+    place = data.get("place", "")
+    time = data.get("time", "")
+    comment = data.get("comment", "—")
+
+    # Создаём заказы
+    for item in cart:
+        await create_order(user.id, item["product_id"])
+
+    await clear_cart(user.id)
+    await state.clear()
+
+    # Уведомление админу
+    admin_text = (
+        f"🛒 Новый заказ из корзины\n\n"
+        f"От: {user.full_name} (@{user.username or '—'})\n"
+        f"ID: {user.id}\n\n"
+    )
+    for item in cart:
+        admin_text += f"• {item['name']} × {item['quantity']} = {item['price'] * item['quantity']}€\n"
+    admin_text += f"\nИтого: {total}€\n"
+    admin_text += f"📍 {city}"
+    if place:
+        admin_text += f", {place}"
+    admin_text += f"\n🕒 {time}\n💬 {comment}"
+
+    try:
+        await bot.send_message(ADMIN_ID, admin_text)
+    except Exception:
+        pass
+
+    await callback.message.edit_text(
+        "✅ Заказ оформлен!\nАдминистратор скоро свяжется с вами."
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "cart_cancel")
+async def cart_cancel(callback: CallbackQuery, state: FSMContext, lang: str):
+    await state.clear()
+    await callback.message.edit_text("Заказ отменён")
+    await callback.answer()
