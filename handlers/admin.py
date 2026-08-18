@@ -459,3 +459,50 @@ async def write_user_send(message: Message, state: FSMContext, bot: Bot, lang: s
         await message.answer(f"❌ Не удалось отправить: {e}")
 
     await state.clear()
+
+
+
+@router.callback_query(F.data.startswith("order_done_"), IsAdmin())
+async def order_done(callback: CallbackQuery, bot: Bot, lang: str):
+    order_id = int(callback.data.split("_")[2])
+    from database import set_order_status
+    order = await set_order_status(order_id, "done")
+    if not order:
+        await callback.answer("Заказ не найден", show_alert=True)
+        return
+
+    try:
+        await bot.send_message(
+            order["user_id"],
+            "✅ Ваш заказ выполнен!\nСпасибо за покупку в MONO."
+        )
+    except Exception:
+        pass
+
+    await callback.message.edit_text(
+        callback.message.text + "\n\n✅ Статус: Выполнен"
+    )
+    await callback.answer("Заказ выполнен")
+
+
+@router.callback_query(F.data.startswith("order_cancel_"), IsAdmin())
+async def order_cancel(callback: CallbackQuery, bot: Bot, lang: str):
+    order_id = int(callback.data.split("_")[2])
+    from database import set_order_status
+    order = await set_order_status(order_id, "cancelled")
+    if not order:
+        await callback.answer("Заказ не найден", show_alert=True)
+        return
+
+    try:
+        await bot.send_message(
+            order["user_id"],
+            "❌ Ваш заказ отменён.\nЕсли есть вопросы — напишите в поддержку."
+        )
+    except Exception:
+        pass
+
+    await callback.message.edit_text(
+        callback.message.text + "\n\n❌ Статус: Отменён"
+    )
+    await callback.answer("Заказ отменён")
