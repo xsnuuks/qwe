@@ -21,7 +21,7 @@ def language_keyboard() -> InlineKeyboardMarkup:
 def main_menu_keyboard(lang: str, is_admin: bool = False) -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
     builder.row(KeyboardButton(text=get_text(lang, "catalog")))
-    builder.row(KeyboardButton(text="🛒 Корзина"))
+    builder.row(KeyboardButton(text="Корзина"))
     builder.row(
         KeyboardButton(text=get_text(lang, "profile")),
         KeyboardButton(text=get_text(lang, "referral")),
