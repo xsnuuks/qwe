@@ -291,7 +291,7 @@ async def cart_add(callback: CallbackQuery, lang: str):
     await callback.answer("✅ Добавлено в корзину", show_alert=False)
 
 
-@router.message(F.text.in_(["Корзина", "CART"]))
+@router.message(F.text.contains("орзин") | F.text == "CART")
 async def show_cart(message: Message, lang: str):
     cart = await get_cart(message.from_user.id)
     if not cart:
