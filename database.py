@@ -345,3 +345,20 @@ async def get_cart_count(user_id: int) -> int:
         ) as cursor:
             row = await cursor.fetchone()
             return row[0] if row else 0
+
+
+async def set_order_status(order_id: int, status: str) -> dict | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT * FROM orders WHERE id = ?", (order_id,)) as cursor:
+            order = await cursor.fetchone()
+            if not order:
+                return None
+            order = dict(order)
+
+        await db.execute(
+            "UPDATE orders SET status = ? WHERE id = ?",
+            (status, order_id)
+        )
+        await db.commit()
+        return order
