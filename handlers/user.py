@@ -291,20 +291,6 @@ async def cart_add(callback: CallbackQuery, lang: str):
     await callback.answer("✅ Добавлено в корзину", show_alert=False)
 
 
-@router.message(F.text.contains("орзин") | F.text == "CART")
-async def show_cart(message: Message, lang: str):
-    cart = await get_cart(message.from_user.id)
-    if not cart:
-        await message.answer("🛒 Корзина пуста")
-        return
-    total = sum(item["price"] * item["quantity"] for item in cart)
-    text = "🛒 Ваша корзина:\n\n"
-    for item in cart:
-        text += f"• {item['name']} × {item['quantity']} = {item['price'] * item['quantity']}€\n"
-    text += f"\nИтого: {total}€"
-    await message.answer(text, reply_markup=cart_keyboard(lang, cart))
-
-
 @router.callback_query(F.data.startswith("cart_plus_"))
 async def cart_plus(callback: CallbackQuery, lang: str):
     product_id = int(callback.data.split("_")[2])
@@ -470,11 +456,29 @@ async def cart_cancel(callback: CallbackQuery, state: FSMContext, lang: str):
     await callback.message.edit_text("Заказ отменён")
     await callback.answer()
 
+@router.message(F.text)
+async def show_cart_or_forward(message: Message, bot: Bot, lang: str, state: FSMContext):
+    current = await state.get_state()
+    if current is not None:
+        return  # пусть сработают process_place и т.д.
 
-# ========== ПЕРЕСЫЛКА СООБЩЕНИЙ АДМИНУ ==========
+    if message.text in ("Корзина", "CART") or (message.text and "орзин" in message.text.lower()):
+        cart = await get_cart(message.from_user.id)
+        if not cart:
+            await message.answer("🛒 Корзина пуста")
+            return
+        total = sum(item["price"] * item["quantity"] for item in cart)
+        text = "🛒 Ваша корзина:\n\n"
+        for item in cart:
+            text += f"• {item['name']} × {item['quantity']} = {item['price'] * item['quantity']}€\n"
+        text += f"\nИтого: {total}€"
+        await message.answer(text, reply_markup=cart_keyboard(lang, cart))
+        return
 
-@router.message(F.chat.type == "private", F.from_user.id != ADMIN_ID, StateFilter(None))
-async def forward_to_admin(message: Message, bot: Bot, lang: str):
+    # дальше обычная пересылка, если не админ
+    if message.from_user.id == ADMIN_ID:
+        return
+
     menu_texts = [
         "🛍 Каталог", "🛍 Catalog", "🛍 Katalog",
         "👤 Профиль", "👤 Profile", "👤 Profil",
@@ -483,7 +487,6 @@ async def forward_to_admin(message: Message, bot: Bot, lang: str):
         "💬 Поддержка", "💬 Support",
         "🌐 Язык", "🌐 Language", "🌐 Sprache",
         "🔧 Админ-панель", "🔧 Admin panel", "🔧 Admin-Panel",
-        "Корзина", "CART",
     ]
     if message.text in menu_texts:
         return
@@ -491,13 +494,10 @@ async def forward_to_admin(message: Message, bot: Bot, lang: str):
     name = message.from_user.full_name or "—"
     username = message.from_user.username or "—"
     text = message.text or "(media/file)"
-
     admin_text = get_text(
         "ru", "admin_new_message",
-        name=name,
-        username=username,
-        user_id=message.from_user.id,
-        text=text
+        name=name, username=username,
+        user_id=message.from_user.id, text=text
     )
     try:
         await bot.send_message(
