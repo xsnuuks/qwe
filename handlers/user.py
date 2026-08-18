@@ -295,7 +295,7 @@ async def show_cart(message: Message, lang: str):
     
 @router.message(F.chat.type == "private", F.from_user.id != ADMIN_ID)
 async def forward_to_admin(message: Message, bot: Bot, lang: str, state: FSMContext):
-    current = await state.get_state()
+        current = await state.get_state()
     if current is not None:
         return
 
