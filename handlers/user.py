@@ -287,7 +287,7 @@ async def forward_to_admin(message: Message, bot: Bot, lang: str):
         "📜 Правила", "📜 Rules", "📜 Regeln",
         "💬 Поддержка", "💬 Support",
         "🌐 Язык", "🌐 Language", "🌐 Sprache",
-        "🔧 Админ-панель", "🔧 Admin panel", "🔧 Admin-Panel",
+        "🔧 Админ-панель", "🔧 Admin panel", "🔧 Admin-Panel", "🛒 Корзина",
     ]
     if message.text in menu_texts:
         return
