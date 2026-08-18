@@ -227,3 +227,13 @@ def cart_keyboard(lang: str, cart_items: list) -> InlineKeyboardMarkup:
         InlineKeyboardButton(text=get_text(lang, "back"), callback_data="back_catalog")
     )
     return builder.as_markup()
+
+
+def city_keyboard() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(InlineKeyboardButton(text="Reutlingen", callback_data="city_Reutlingen"))
+    builder.row(InlineKeyboardButton(text="Betzingen", callback_data="city_Betzingen"))
+    builder.row(InlineKeyboardButton(text="Pfullingen", callback_data="city_Pfullingen"))
+    builder.row(InlineKeyboardButton(text="Eningen", callback_data="city_Eningen"))
+    builder.row(InlineKeyboardButton(text="❌ Отмена", callback_data="cart_cancel"))
+    return builder.as_markup()
