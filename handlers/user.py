@@ -304,17 +304,8 @@ async def forward_to_admin(message: Message, bot: Bot, lang: str):
         "🌐 Язык", "🌐 Language", "🌐 Sprache",
         "🔧 Админ-панель", "🔧 Admin panel", "🔧 Admin-Panel", "Корзина",
     ]
-    if message.text and "Корзина" in message.text:
-        cart = await get_cart(message.from_user.id)
-        if not cart:
-            await message.answer("🛒 Корзина пуста")
-            return
-        total = sum(item["price"] * item["quantity"] for item in cart)
-        text = "🛒 Ваша корзина:\n\n"
-        for item in cart:
-            text += f"• {item['name']} × {item['quantity']} = {item['price'] * item['quantity']}€\n"
-        text += f"\nИтого: {total}€"
-        await message.answer(text, reply_markup=cart_keyboard(lang, cart))
+       if message.text and "Корзина" in message.text:
+        await message.answer(f"Отладка: получил текст → «{message.text}»")
         return
 
     if message.text in menu_texts:
