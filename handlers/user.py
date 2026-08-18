@@ -426,3 +426,44 @@ async def process_time(message: Message, state: FSMContext, lang: str):
     await state.update_data(time=message.text)
     await message.answer("💬 Комментарий к заказу (или «-»):")
     await state.set_state(CheckoutState.comment)
+
+
+@router.callback_query(F.data == "cart_checkout")
+async def cart_checkout_start(callback: CallbackQuery, state: FSMContext, lang: str):
+    cart = await get_cart(callback.from_user.id)
+    if not cart:
+        await callback.answer("Корзина пуста", show_alert=True)
+        return
+
+    await callback.message.edit_text(
+        "📍 Выберите город:",
+        reply_markup=city_keyboard()
+    )
+    await state.set_state(CheckoutState.city)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("city_"), CheckoutState.city)
+async def process_city(callback: CallbackQuery, state: FSMContext, lang: str):
+    city = callback.data.split("_", 1)[1]
+    await state.update_data(city=city)
+    await callback.message.edit_text(
+        f"Город: {city}\n\nНапишите точное место встречи\n(например: Hauptbahnhof)\nили отправьте «-»"
+    )
+    await state.set_state(CheckoutState.place)
+    await callback.answer()
+
+
+@router.message(CheckoutState.place)
+async def process_place(message: Message, state: FSMContext, lang: str):
+    place = message.text if message.text != "-" else ""
+    await state.update_data(place=place)
+    await message.answer("🕒 Во сколько удобно встретиться?\nНапример: сегодня в 18:30")
+    await state.set_state(CheckoutState.time)
+
+
+@router.message(CheckoutState.time)
+async def process_time(message: Message, state: FSMContext, lang: str):
+    await state.update_data(time=message.text)
+    await message.answer("💬 Комментарий к заказу (или «-»):")
+    await state.set_state(CheckoutState.comment)
