@@ -481,7 +481,7 @@ async def forward_to_admin(message: Message, bot: Bot, lang: str):
         "💬 Поддержка", "💬 Support",
         "🌐 Язык", "🌐 Language", "🌐 Sprache",
         "🔧 Админ-панель", "🔧 Admin panel", "🔧 Admin-Panel",
-        "Корзина", "CART",
+        "Корзина", "🛒 \u041a\u043e\u0440\u0437\u0438\u043d\u0430",
     ]
     if message.text in menu_texts:
         return
