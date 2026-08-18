@@ -193,7 +193,7 @@ async def complete_order(order_id: int):
                 return False
             order = dict(order)
 
-        await db.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (order_id,))
+        await db.execute("UPDATE orders SET status = 'done' WHERE id = ?", (order_id,))
         await db.execute(
             "UPDATE users SET purchases_count = purchases_count + 1 WHERE user_id = ?",
             (order["user_id"],)
