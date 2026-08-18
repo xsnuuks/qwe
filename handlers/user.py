@@ -21,7 +21,11 @@ router = Router()
 
 class SupportState(StatesGroup):
     waiting_message = State()
-
+class CheckoutState(StatesGroup):
+    city = State()
+    place = State()
+    time = State()
+    comment = State()
 
 def is_admin(user_id: int) -> bool:
     return user_id == ADMIN_ID
