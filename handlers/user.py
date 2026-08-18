@@ -304,7 +304,7 @@ async def forward_to_admin(message: Message, bot: Bot, lang: str):
         "🌐 Язык", "🌐 Language", "🌐 Sprache",
         "🔧 Админ-панель", "🔧 Admin panel", "🔧 Admin-Panel", "Корзина", "CART",
     ]
-    if message.text == "CART":
+    if message.text in ("CART", "Корзина"):
         cart = await get_cart(message.from_user.id)
         if not cart:
             await message.answer("🛒 Корзина пуста")
