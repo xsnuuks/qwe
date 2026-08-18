@@ -12,7 +12,7 @@ from database import (
 )
 from keyboards import (
     language_keyboard, main_menu_keyboard, catalog_keyboard,
-    product_keyboard, back_keyboard
+    product_keyboard, back_keyboard, cart_keyboard
 )
 from locales import get_text
 
