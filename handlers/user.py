@@ -446,6 +446,7 @@ async def process_city(callback: CallbackQuery, state: FSMContext, lang: str):
 @router.message(CheckoutState.place)
 async def process_place(message: Message, state: FSMContext, lang: str):
     place = message.text if message.text != "-" else ""
+    await message.answer("DEBUG: место получено")
     await state.update_data(place=place)
     await message.answer("🕒 Во сколько удобно встретиться?\nНапример: сегодня в 18:30")
     await state.set_state(CheckoutState.time)
