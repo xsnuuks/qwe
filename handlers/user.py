@@ -307,3 +307,75 @@ async def forward_to_admin(message: Message, bot: Bot, lang: str):
         )
     except Exception:
         pass
+
+
+@router.callback_query(F.data.startswith("cart_add_"))
+async def cart_add(callback: CallbackQuery, lang: str):
+    product_id = int(callback.data.split("_")[2])
+    await add_to_cart(callback.from_user.id, product_id)
+    await callback.answer("✅ Добавлено в корзину", show_alert=False)
+
+
+@router.message(F.text == "🛒 Корзина")
+async def show_cart(message: Message, lang: str):
+    cart = await get_cart(message.from_user.id)
+    if not cart:
+        await message.answer("🛒 Корзина пуста")
+        return
+
+    total = sum(item["price"] * item["quantity"] for item in cart)
+    text = "🛒 Ваша корзина:\n\n"
+    for item in cart:
+        text += f"• {item['name']} × {item['quantity']} = {item['price'] * item['quantity']}€\n"
+    text += f"\nИтого: {total}€"
+
+    await message.answer(text, reply_markup=cart_keyboard(lang, cart))
+
+
+@router.callback_query(F.data.startswith("cart_plus_"))
+async def cart_plus(callback: CallbackQuery, lang: str):
+    product_id = int(callback.data.split("_")[2])
+    cart = await get_cart(callback.from_user.id)
+    current = next((i["quantity"] for i in cart if i["product_id"] == product_id), 0)
+    await update_cart_quantity(callback.from_user.id, product_id, current + 1)
+    await show_cart_callback(callback, lang)
+
+
+@router.callback_query(F.data.startswith("cart_minus_"))
+async def cart_minus(callback: CallbackQuery, lang: str):
+    product_id = int(callback.data.split("_")[2])
+    cart = await get_cart(callback.from_user.id)
+    current = next((i["quantity"] for i in cart if i["product_id"] == product_id), 0)
+    await update_cart_quantity(callback.from_user.id, product_id, current - 1)
+    await show_cart_callback(callback, lang)
+
+
+@router.callback_query(F.data.startswith("cart_remove_"))
+async def cart_remove(callback: CallbackQuery, lang: str):
+    product_id = int(callback.data.split("_")[2])
+    await remove_from_cart(callback.from_user.id, product_id)
+    await show_cart_callback(callback, lang)
+
+
+@router.callback_query(F.data == "cart_clear")
+async def cart_clear_handler(callback: CallbackQuery, lang: str):
+    await clear_cart(callback.from_user.id)
+    await callback.message.edit_text("🛒 Корзина очищена")
+    await callback.answer()
+
+
+async def show_cart_callback(callback: CallbackQuery, lang: str):
+    cart = await get_cart(callback.from_user.id)
+    if not cart:
+        await callback.message.edit_text("🛒 Корзина пуста")
+        await callback.answer()
+        return
+
+    total = sum(item["price"] * item["quantity"] for item in cart)
+    text = "🛒 Ваша корзина:\n\n"
+    for item in cart:
+        text += f"• {item['name']} × {item['quantity']} = {item['price'] * item['quantity']}€\n"
+    text += f"\nИтого: {total}€"
+
+    await callback.message.edit_text(text, reply_markup=cart_keyboard(lang, cart))
+    await callback.answer()
