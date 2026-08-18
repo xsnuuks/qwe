@@ -278,3 +278,232 @@ async def support_message(message: Message, state: FSMContext, bot: Bot, lang: s
 
     await message.answer(get_text(lang, "support_sent"))
     await state.clear()
+
+
+
+
+# ========== КОРЗИНА ==========
+
+@router.callback_query(F.data.startswith("cart_add_"))
+async def cart_add(callback: CallbackQuery, lang: str):
+    product_id = int(callback.data.split("_")[2])
+    await add_to_cart(callback.from_user.id, product_id)
+    await callback.answer("✅ Добавлено в корзину", show_alert=False)
+
+
+@router.message(F.text.in_(["Корзина", "CART"]))
+async def show_cart(message: Message, lang: str):
+    cart = await get_cart(message.from_user.id)
+    if not cart:
+        await message.answer("🛒 Корзина пуста")
+        return
+    total = sum(item["price"] * item["quantity"] for item in cart)
+    text = "🛒 Ваша корзина:\n\n"
+    for item in cart:
+        text += f"• {item['name']} × {item['quantity']} = {item['price'] * item['quantity']}€\n"
+    text += f"\nИтого: {total}€"
+    await message.answer(text, reply_markup=cart_keyboard(lang, cart))
+
+
+@router.callback_query(F.data.startswith("cart_plus_"))
+async def cart_plus(callback: CallbackQuery, lang: str):
+    product_id = int(callback.data.split("_")[2])
+    cart = await get_cart(callback.from_user.id)
+    current = next((i["quantity"] for i in cart if i["product_id"] == product_id), 0)
+    await update_cart_quantity(callback.from_user.id, product_id, current + 1)
+    await show_cart_callback(callback, lang)
+
+
+@router.callback_query(F.data.startswith("cart_minus_"))
+async def cart_minus(callback: CallbackQuery, lang: str):
+    product_id = int(callback.data.split("_")[2])
+    cart = await get_cart(callback.from_user.id)
+    current = next((i["quantity"] for i in cart if i["product_id"] == product_id), 0)
+    await update_cart_quantity(callback.from_user.id, product_id, current - 1)
+    await show_cart_callback(callback, lang)
+
+
+@router.callback_query(F.data.startswith("cart_remove_"))
+async def cart_remove(callback: CallbackQuery, lang: str):
+    product_id = int(callback.data.split("_")[2])
+    await remove_from_cart(callback.from_user.id, product_id)
+    await show_cart_callback(callback, lang)
+
+
+@router.callback_query(F.data == "cart_clear")
+async def cart_clear_handler(callback: CallbackQuery, lang: str):
+    await clear_cart(callback.from_user.id)
+    await callback.message.edit_text("🛒 Корзина очищена")
+    await callback.answer()
+
+
+async def show_cart_callback(callback: CallbackQuery, lang: str):
+    cart = await get_cart(callback.from_user.id)
+    if not cart:
+        await callback.message.edit_text("🛒 Корзина пуста")
+        await callback.answer()
+        return
+    total = sum(item["price"] * item["quantity"] for item in cart)
+    text = "🛒 Ваша корзина:\n\n"
+    for item in cart:
+        text += f"• {item['name']} × {item['quantity']} = {item['price'] * item['quantity']}€\n"
+    text += f"\nИтого: {total}€"
+    await callback.message.edit_text(text, reply_markup=cart_keyboard(lang, cart))
+    await callback.answer()
+
+
+# ========== ОФОРМЛЕНИЕ ==========
+
+@router.callback_query(F.data == "cart_checkout")
+async def cart_checkout_start(callback: CallbackQuery, state: FSMContext, lang: str):
+    cart = await get_cart(callback.from_user.id)
+    if not cart:
+        await callback.answer("Корзина пуста", show_alert=True)
+        return
+    await callback.message.edit_text("📍 Выберите город:", reply_markup=city_keyboard())
+    await state.set_state(CheckoutState.city)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("city_"), CheckoutState.city)
+async def process_city(callback: CallbackQuery, state: FSMContext, lang: str):
+    city = callback.data.split("_", 1)[1]
+    await state.update_data(city=city)
+    await callback.message.edit_text(
+        f"Город: {city}\n\n"
+        "Напишите одним сообщением:\n"
+        "1. Место встречи\n"
+        "2. Время\n"
+        "3. Комментарий (или -)\n\n"
+        "Пример:\nHauptbahnhof\nсегодня 18:30\n-"
+    )
+    await state.set_state(CheckoutState.place)
+    await callback.answer()
+
+
+@router.message(CheckoutState.place)
+async def process_place(message: Message, state: FSMContext, lang: str):
+    lines = (message.text or "").strip().split("\n")
+    place = lines[0] if len(lines) > 0 else ""
+    time = lines[1] if len(lines) > 1 else ""
+    comment = lines[2] if len(lines) > 2 else "—"
+    if comment == "-":
+        comment = "—"
+
+    await state.update_data(place=place, time=time, comment=comment)
+    data = await state.get_data()
+    cart = await get_cart(message.from_user.id)
+
+    if not cart:
+        await message.answer("Корзина пуста")
+        await state.clear()
+        return
+
+    total = sum(item["price"] * item["quantity"] for item in cart)
+    city = data.get("city", "")
+
+    text = "🛒 Ваш заказ\n\n"
+    for item in cart:
+        text += f"• {item['name']} × {item['quantity']} = {item['price'] * item['quantity']}€\n"
+    text += f"\nИтого: {total}€\n"
+    text += f"📍 {city}"
+    if place:
+        text += f", {place}"
+    text += f"\n🕒 {time}\n💬 {comment}\n\nВсё верно?"
+
+    await message.answer(
+        text,
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Подтвердить заказ", callback_data="cart_confirm")],
+            [InlineKeyboardButton(text="❌ Отмена", callback_data="cart_cancel")]
+        ])
+    )
+
+
+@router.callback_query(F.data == "cart_confirm")
+async def cart_confirm(callback: CallbackQuery, state: FSMContext, bot: Bot, lang: str):
+    data = await state.get_data()
+    cart = await get_cart(callback.from_user.id)
+    user = callback.from_user
+
+    if not cart:
+        await callback.answer("Корзина пуста", show_alert=True)
+        await state.clear()
+        return
+
+    total = sum(item["price"] * item["quantity"] for item in cart)
+    city = data.get("city", "")
+    place = data.get("place", "")
+    time = data.get("time", "")
+    comment = data.get("comment", "—")
+
+    for item in cart:
+        await create_order(user.id, item["product_id"])
+
+    await clear_cart(user.id)
+    await state.clear()
+
+    admin_text = (
+        f"🛒 Новый заказ из корзины\n\n"
+        f"От: {user.full_name} (@{user.username or '—'})\n"
+        f"ID: {user.id}\n\n"
+    )
+    for item in cart:
+        admin_text += f"• {item['name']} × {item['quantity']} = {item['price'] * item['quantity']}€\n"
+    admin_text += f"\nИтого: {total}€\n📍 {city}"
+    if place:
+        admin_text += f", {place}"
+    admin_text += f"\n🕒 {time}\n💬 {comment}"
+
+    try:
+        await bot.send_message(ADMIN_ID, admin_text)
+    except Exception:
+        pass
+
+    await callback.message.edit_text("✅ Заказ оформлен!\nАдминистратор скоро свяжется с вами.")
+    await callback.answer()
+
+
+@router.callback_query(F.data == "cart_cancel")
+async def cart_cancel(callback: CallbackQuery, state: FSMContext, lang: str):
+    await state.clear()
+    await callback.message.edit_text("Заказ отменён")
+    await callback.answer()
+
+
+# ========== ПЕРЕСЫЛКА СООБЩЕНИЙ АДМИНУ ==========
+
+@router.message(F.chat.type == "private", F.from_user.id != ADMIN_ID, StateFilter(None))
+async def forward_to_admin(message: Message, bot: Bot, lang: str):
+    menu_texts = [
+        "🛍 Каталог", "🛍 Catalog", "🛍 Katalog",
+        "👤 Профиль", "👤 Profile", "👤 Profil",
+        "🔗 Реферальная программа", "🔗 Referral program", "🔗 Empfehlungsprogramm",
+        "📜 Правила", "📜 Rules", "📜 Regeln",
+        "💬 Поддержка", "💬 Support",
+        "🌐 Язык", "🌐 Language", "🌐 Sprache",
+        "🔧 Админ-панель", "🔧 Admin panel", "🔧 Admin-Panel",
+        "Корзина", "CART",
+    ]
+    if message.text in menu_texts:
+        return
+
+    name = message.from_user.full_name or "—"
+    username = message.from_user.username or "—"
+    text = message.text or "(media/file)"
+
+    admin_text = get_text(
+        "ru", "admin_new_message",
+        name=name,
+        username=username,
+        user_id=message.from_user.id,
+        text=text
+    )
+    try:
+        await bot.send_message(
+            ADMIN_ID,
+            admin_text + "\n\n" + get_text("ru", "reply_hint"),
+            parse_mode="HTML"
+        )
+    except Exception:
+        pass
