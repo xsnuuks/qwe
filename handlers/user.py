@@ -1,7 +1,7 @@
 from aiogram.dispatcher.event.bases import SkipHandler
 from aiogram import Router, F, Bot
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.filters import CommandStart, CommandObject
+from aiogram.filters import CommandStart, CommandObject, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
@@ -293,11 +293,9 @@ async def show_cart(message: Message, lang: str):
 
     await message.answer(text, reply_markup=cart_keyboard(lang, cart))
     
-@router.message(F.chat.type == "private", F.from_user.id != ADMIN_ID)
+@router.message(F.chat.type == "private", F.from_user.id != ADMIN_ID, StateFilter(None))
 async def forward_to_admin(message: Message, bot: Bot, lang: str, state: FSMContext):
-            current = await state.get_state()
-    if current is not None:
-        raise SkipHandler()
+            
 
     menu_texts = [
         "🛍 Каталог", "🛍 Catalog", "🛍 Katalog",
