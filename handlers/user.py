@@ -1,3 +1,4 @@
+from aiogram.dispatcher.event.bases import SkipHandler
 from aiogram import Router, F, Bot
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import CommandStart, CommandObject
@@ -303,8 +304,8 @@ async def forward_to_admin(message: Message, bot: Bot, lang: str):
         "🌐 Язык", "🌐 Language", "🌐 Sprache",
         "🔧 Админ-панель", "🔧 Admin panel", "🔧 Admin-Panel", "Корзина",
     ]
-    if message.text in menu_texts:
-        return
+            if message.text in menu_texts or (message.text and "Корзина" in message.text):
+        raise SkipHandler()
 
     name = message.from_user.full_name or "—"
     username = message.from_user.username or "—"
