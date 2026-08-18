@@ -256,26 +256,4 @@ async def support_message(message: Message, state: FSMContext, bot: Bot, lang: s
         await state.clear()
         return
 
-    name = message.from_user.full_name or "—"
-    username = message.from_user.username or "—"
-    text = message.text or "(media)"
-
-    admin_text = get_text(
-        "ru", "admin_new_message",
-        name=name,
-        username=username,
-        user_id=message.from_user.id,
-        text=text
-    )
-    try:
-        await bot.send_message(
-            ADMIN_ID,
-            admin_text + "\n\n" + get_text("ru", "reply_hint"),
-            parse_mode="HTML"
-        )
-    except Exception:
-        pass
-
-    await message.answer(get_text(lang, "support_sent"))
-    await state.clear()
-
+   
