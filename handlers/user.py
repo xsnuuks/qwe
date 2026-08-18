@@ -287,7 +287,7 @@ async def forward_to_admin(message: Message, bot: Bot, lang: str):
         "📜 Правила", "📜 Rules", "📜 Regeln",
         "💬 Поддержка", "💬 Support",
         "🌐 Язык", "🌐 Language", "🌐 Sprache",
-        "🔧 Админ-панель", "🔧 Admin panel", "🔧 Admin-Panel", "🛒 Корзина",
+        "🔧 Админ-панель", "🔧 Admin panel", "🔧 Admin-Panel", "Корзина",
     ]
     if message.text in menu_texts:
         return
@@ -320,7 +320,7 @@ async def cart_add(callback: CallbackQuery, lang: str):
     await callback.answer("✅ Добавлено в корзину", show_alert=False)
 
 
-@router.message(F.text == "🛒 Корзина")
+@router.message(F.text == "Корзина")
 async def show_cart(message: Message, lang: str):
     cart = await get_cart(message.from_user.id)
     if not cart:
