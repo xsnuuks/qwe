@@ -294,7 +294,11 @@ async def show_cart(message: Message, lang: str):
     await message.answer(text, reply_markup=cart_keyboard(lang, cart))
     
 @router.message(F.chat.type == "private", F.from_user.id != ADMIN_ID)
-async def forward_to_admin(message: Message, bot: Bot, lang: str):
+async def forward_to_admin(message: Message, bot: Bot, lang: str, state: FSMContext):
+    current = await state.get_state()
+    if current is not None:
+        return
+
     menu_texts = [
         "🛍 Каталог", "🛍 Catalog", "🛍 Katalog",
         "👤 Профиль", "👤 Profile", "👤 Profil",
