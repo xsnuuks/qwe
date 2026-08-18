@@ -503,7 +503,20 @@ async def process_comment(message: Message, state: FSMContext, bot: Bot, lang: s
         ])
     )
 
+@router.message(F.text.contains("Корзина"))
+async def show_cart(message: Message, lang: str):
+    cart = await get_cart(message.from_user.id)
+    if not cart:
+        await message.answer("🛒 Корзина пуста")
+        return
 
+    total = sum(item["price"] * item["quantity"] for item in cart)
+    text = "🛒 Ваша корзина:\n\n"
+    for item in cart:
+        text += f"• {item['name']} × {item['quantity']} = {item['price'] * item['quantity']}€\n"
+    text += f"\nИтого: {total}€"
+
+    await message.answer(text, reply_markup=cart_keyboard(lang, cart))
 @router.callback_query(F.data == "cart_confirm")
 async def cart_confirm(callback: CallbackQuery, state: FSMContext, bot: Bot, lang: str):
     data = await state.get_data()
