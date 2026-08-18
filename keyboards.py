@@ -21,7 +21,7 @@ def language_keyboard() -> InlineKeyboardMarkup:
 def main_menu_keyboard(lang: str, is_admin: bool = False) -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
     builder.row(KeyboardButton(text=get_text(lang, "catalog")))
-    builder.row(KeyboardButton(text="CART"))
+    builder.row(KeyboardButton(text="🛒 \u041a\u043e\u0440\u0437\u0438\u043d\u0430"))
     builder.row(
         KeyboardButton(text=get_text(lang, "profile")),
         KeyboardButton(text=get_text(lang, "referral")),
