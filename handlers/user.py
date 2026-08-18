@@ -7,7 +7,8 @@ from aiogram.fsm.state import State, StatesGroup
 from config import ADMIN_ID, PRICE_NORMAL, PRICE_DISCOUNT
 from database import (
     get_user, create_user, update_user_language, set_referrer,
-    get_all_products, get_product, create_order, use_discount
+    get_all_products, get_product, create_order, use_discount, add_to_cart, get_cart, remove_from_cart, update_cart_quantity,
+    clear_cart, get_cart_count
 )
 from keyboards import (
     language_keyboard, main_menu_keyboard, catalog_keyboard,
