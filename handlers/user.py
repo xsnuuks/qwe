@@ -293,24 +293,57 @@ async def show_cart(message: Message, lang: str):
 
     await message.answer(text, reply_markup=cart_keyboard(lang, cart))
 
-@router.callback_query(F.data.startswith("city_"), CheckoutState.city)
-async def process_city(callback: CallbackQuery, state: FSMContext, lang: str):
-    city = callback.data.split("_", 1)[1]
     await state.update_data(city=city)
     await callback.message.edit_text(
-        f"Город: {city}\n\nНапишите точное место встречи\n(например: Hauptbahnhof)\nили отправьте «-»"
+        f"Город: {city}\n\n"
+        "Напишите одним сообщением:\n"
+        "1. Точное место\n"
+        "2. Время\n"
+        "3. Комментарий (или -)\n\n"
+        "Пример:\nHauptbahnhof\nсегодня 18:30\n-"
     )
     await state.set_state(CheckoutState.place)
     await callback.answer()
 
 
 @router.message(CheckoutState.place)
-async def process_place(message: Message, state: FSMContext, lang: str):
-    place = message.text if message.text != "-" else ""
+async def process_place(message: Message, state: FSMContext, bot: Bot, lang: str):
     await message.answer("DEBUG: место получено")
-    await state.update_data(place=place)
-    await message.answer("🕒 Во сколько удобно встретиться?\nНапример: сегодня в 18:30")
-    await state.set_state(CheckoutState.time)
+    lines = (message.text or "").strip().split("\n")
+    place = lines[0] if len(lines) > 0 else ""
+    time = lines[1] if len(lines) > 1 else ""
+    comment = lines[2] if len(lines) > 2 else "—"
+    if comment == "-":
+        comment = "—"
+
+    await state.update_data(place=place, time=time, comment=comment)
+    
+    data = await state.get_data()
+    cart = await get_cart(message.from_user.id)
+    if not cart:
+        await message.answer("Корзина пуста")
+        await state.clear()
+        return
+
+    total = sum(item["price"] * item["quantity"] for item in cart)
+    city = data.get("city", "")
+
+    text = "🛒 Ваш заказ\n\n"
+    for item in cart:
+        text += f"• {item['name']} × {item['quantity']} = {item['price'] * item['quantity']}€\n"
+    text += f"\nИтого: {total}€\n"
+    text += f"📍 {city}"
+    if place:
+        text += f", {place}"
+    text += f"\n🕒 {time}\n💬 {comment}\n\nВсё верно?"
+
+    await message.answer(
+        text,
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Подтвердить заказ", callback_data="cart_confirm")],
+            [InlineKeyboardButton(text="❌ Отмена", callback_data="cart_cancel")]
+        ])
+    )
 
 
 @router.message(CheckoutState.time)
