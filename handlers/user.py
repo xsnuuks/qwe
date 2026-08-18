@@ -292,6 +292,32 @@ async def show_cart(message: Message, lang: str):
     text += f"\nИтого: {total}€"
 
     await message.answer(text, reply_markup=cart_keyboard(lang, cart))
+
+@router.callback_query(F.data.startswith("city_"), CheckoutState.city)
+async def process_city(callback: CallbackQuery, state: FSMContext, lang: str):
+    city = callback.data.split("_", 1)[1]
+    await state.update_data(city=city)
+    await callback.message.edit_text(
+        f"Город: {city}\n\nНапишите точное место встречи\n(например: Hauptbahnhof)\nили отправьте «-»"
+    )
+    await state.set_state(CheckoutState.place)
+    await callback.answer()
+
+
+@router.message(CheckoutState.place)
+async def process_place(message: Message, state: FSMContext, lang: str):
+    place = message.text if message.text != "-" else ""
+    await message.answer("DEBUG: место получено")
+    await state.update_data(place=place)
+    await message.answer("🕒 Во сколько удобно встретиться?\nНапример: сегодня в 18:30")
+    await state.set_state(CheckoutState.time)
+
+
+@router.message(CheckoutState.time)
+async def process_time(message: Message, state: FSMContext, lang: str):
+    await state.update_data(time=message.text)
+    await message.answer("💬 Комментарий к заказу (или «-»):")
+    await state.set_state(CheckoutState.comment)
     
 @router.message(F.chat.type == "private", F.from_user.id != ADMIN_ID, StateFilter(None))
 async def forward_to_admin(message: Message, bot: Bot, lang: str, state: FSMContext):
@@ -430,33 +456,6 @@ async def cart_checkout_start(callback: CallbackQuery, state: FSMContext, lang: 
     )
     await state.set_state(CheckoutState.city)
     await callback.answer()
-
-
-@router.callback_query(F.data.startswith("city_"), CheckoutState.city)
-async def process_city(callback: CallbackQuery, state: FSMContext, lang: str):
-    city = callback.data.split("_", 1)[1]
-    await state.update_data(city=city)
-    await callback.message.edit_text(
-        f"Город: {city}\n\nНапишите точное место встречи\n(например: Hauptbahnhof)\nили отправьте «-»"
-    )
-    await state.set_state(CheckoutState.place)
-    await callback.answer()
-
-
-@router.message(CheckoutState.place)
-async def process_place(message: Message, state: FSMContext, lang: str):
-    place = message.text if message.text != "-" else ""
-    await message.answer("DEBUG: место получено")
-    await state.update_data(place=place)
-    await message.answer("🕒 Во сколько удобно встретиться?\nНапример: сегодня в 18:30")
-    await state.set_state(CheckoutState.time)
-
-
-@router.message(CheckoutState.time)
-async def process_time(message: Message, state: FSMContext, lang: str):
-    await state.update_data(time=message.text)
-    await message.answer("💬 Комментарий к заказу (или «-»):")
-    await state.set_state(CheckoutState.comment)
 
 
 @router.callback_query(F.data == "cart_checkout")
