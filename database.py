@@ -230,7 +230,7 @@ async def get_pending_orders() -> List[Dict[str, Any]]:
                FROM orders o 
                JOIN users u ON o.user_id = u.user_id 
                LEFT JOIN products p ON o.product_id = p.id
-               WHERE o.status = 'pending' ORDER BY o.created_at DESC"""
+               WHERE o.status = 'new' ORDER BY o.created_at DESC"""
         ) as cursor:
             rows = await cursor.fetchall()
             return [dict(row) for row in rows]
