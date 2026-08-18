@@ -119,8 +119,12 @@ def order_actions_keyboard(lang: str, order_id: int) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.row(
         InlineKeyboardButton(
-            text=get_text(lang, "complete_order"),
-            callback_data=f"complete_order_{order_id}"
+            text="✅ Выполнен",
+            callback_data=f"order_done_{order_id}"
+        ),
+        InlineKeyboardButton(
+            text="❌ Отменён",
+            callback_data=f"order_cancel_{order_id}"
         )
     )
     return builder.as_markup()
