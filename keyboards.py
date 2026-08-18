@@ -21,6 +21,7 @@ def language_keyboard() -> InlineKeyboardMarkup:
 def main_menu_keyboard(lang: str, is_admin: bool = False) -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
     builder.row(KeyboardButton(text=get_text(lang, "catalog")))
+    builder.row(KeyboardButton(text="🛒 Корзина"))
     builder.row(
         KeyboardButton(text=get_text(lang, "profile")),
         KeyboardButton(text=get_text(lang, "referral")),
@@ -38,6 +39,10 @@ def main_menu_keyboard(lang: str, is_admin: bool = False) -> ReplyKeyboardMarkup
 def product_keyboard(lang: str, product_id: int) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.row(
+        InlineKeyboardButton(
+            text="🛒 В корзину",
+            callback_data=f"cart_add_{product_id}"
+        ),
         InlineKeyboardButton(
             text=get_text(lang, "buy"),
             callback_data=f"buy_{product_id}"
@@ -190,5 +195,35 @@ def users_list_keyboard(users: list, page: int, total_pages: int) -> InlineKeybo
 
     builder.row(
         InlineKeyboardButton(text="🔙 Назад", callback_data="admin_menu")
+    )
+    return builder.as_markup()
+
+
+def cart_keyboard(lang: str, cart_items: list) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+
+    for item in cart_items:
+        pid = item["product_id"]
+        name = item["name"]
+        qty = item["quantity"]
+        builder.row(
+            InlineKeyboardButton(text=f"➖", callback_data=f"cart_minus_{pid}"),
+            InlineKeyboardButton(text=f"{name} × {qty}", callback_data=f"cart_item_{pid}"),
+            InlineKeyboardButton(text=f"➕", callback_data=f"cart_plus_{pid}"),
+        )
+        builder.row(
+            InlineKeyboardButton(text="🗑 Удалить", callback_data=f"cart_remove_{pid}")
+        )
+
+    if cart_items:
+        builder.row(
+            InlineKeyboardButton(text="✅ Оформить заказ", callback_data="cart_checkout")
+        )
+        builder.row(
+            InlineKeyboardButton(text="🧹 Очистить корзину", callback_data="cart_clear")
+        )
+
+    builder.row(
+        InlineKeyboardButton(text=get_text(lang, "back"), callback_data="back_catalog")
     )
     return builder.as_markup()
