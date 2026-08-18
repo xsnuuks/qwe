@@ -176,10 +176,8 @@ async def update_product(product_id: int, **kwargs):
 
 async def create_order(user_id: int, product_id: int, used_discount: bool = False) -> int:
     async with aiosqlite.connect(DB_PATH) as db:
-        cursor = await db.execute(
-            "INSERT INTO orders (user_id, product_id, used_discount, status, created_at) VALUES (?, ?, ?, 'new', ?)",
-            (user_id, product_id, int(used_discount), datetime.now().isoformat())
-        )
+        sql = "INSERT INTO orders (user_id, product_id, used_discount, status, created_at) VALUES (?, ?, ?, 'new', ?)"
+        cursor = await db.execute(sql, (user_id, product_id, int(used_discount), datetime.now().isoformat()))
         await db.commit()
         return cursor.lastrowid
 
