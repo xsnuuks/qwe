@@ -50,7 +50,7 @@ async def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER,
                 product_id INTEGER,
-                status TEXT DEFAULT 'pending',
+                status TEXT DEFAULT 'new',
                 used_discount INTEGER DEFAULT 0,
                 created_at TEXT,
                 FOREIGN KEY (user_id) REFERENCES users(user_id),
