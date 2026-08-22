@@ -422,3 +422,78 @@ async def get_profile(user_id: int):
         "has_discount": bool(user.get("has_discount") or 0),
         "is_blocked": bool(user.get("is_blocked") or 0),
     }
+
+
+async def add_message(user_id: int, text: str, from_admin: bool = False) -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            """
+            INSERT INTO messages (user_id, from_admin, text, is_read, created_at)
+            VALUES (?, ?, ?, 0, ?)
+            """,
+            (user_id, int(from_admin), text, datetime.now().isoformat()),
+        )
+        await db.commit()
+        return cursor.lastrowid
+
+
+async def get_messages(user_id: int, limit: int = 100):
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            """
+            SELECT * FROM messages
+            WHERE user_id = ?
+            ORDER BY id ASC
+            LIMIT ?
+            """,
+            (user_id, limit),
+        )
+        rows = await cursor.fetchall()
+        return [dict(r) for r in rows]
+
+
+async def get_chat_list():
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            """
+            SELECT
+                m.user_id,
+                u.username,
+                u.full_name,
+                m.text AS last_text,
+                m.created_at AS last_at,
+                m.from_admin AS last_from_admin,
+                (
+                    SELECT COUNT(*) FROM messages m2
+                    WHERE m2.user_id = m.user_id
+                      AND m2.from_admin = 0
+                      AND m2.is_read = 0
+                ) AS unread
+            FROM messages m
+            JOIN users u ON u.user_id = m.user_id
+            WHERE m.id = (
+                SELECT MAX(id) FROM messages WHERE user_id = m.user_id
+            )
+            ORDER BY m.id DESC
+            """
+        )
+        rows = await cursor.fetchall()
+        return [dict(r) for r in rows]
+
+
+async def mark_messages_read(user_id: int, from_admin_side: bool):
+    """If admin opens chat -> mark user messages read. If user opens -> mark admin messages read."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        if from_admin_side:
+            await db.execute(
+                "UPDATE messages SET is_read = 1 WHERE user_id = ? AND from_admin = 0",
+                (user_id,),
+            )
+        else:
+            await db.execute(
+                "UPDATE messages SET is_read = 1 WHERE user_id = ? AND from_admin = 1",
+                (user_id,),
+            )
+        await db.commit()
