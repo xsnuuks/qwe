@@ -495,7 +495,6 @@ async def get_chat_list():
         rows = await cursor.fetchall()
         return [dict(r) for r in rows]
 
-
 async def mark_messages_read(user_id: int, from_admin_side: bool):
     async with aiosqlite.connect(DB_PATH) as db:
         if from_admin_side:
