@@ -539,3 +539,31 @@ async def increment_purchases(user_id: int):
             (user_id,),
         )
         await db.commit()
+
+
+async def set_referrer_if_empty(user_id: int, referrer_id: int) -> bool:
+    if user_id == referrer_id:
+        return False
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            "SELECT referrer_id FROM users WHERE user_id = ?",
+            (user_id,),
+        )
+        row = await cur.fetchone()
+        if not row:
+            return False
+        if row["referrer_id"]:
+            return False
+        cur2 = await db.execute(
+            "SELECT user_id FROM users WHERE user_id = ?",
+            (referrer_id,),
+        )
+        if not await cur2.fetchone():
+            return False
+        await db.execute(
+            "UPDATE users SET referrer_id = ? WHERE user_id = ? AND (referrer_id IS NULL OR referrer_id = 0)",
+            (referrer_id, user_id),
+        )
+        await db.commit()
+        return True
