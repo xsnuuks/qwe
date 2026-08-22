@@ -87,7 +87,7 @@ async def set_language(callback: CallbackQuery):
 async def change_language(message: Message):
     await message.answer(
         get_text("ru", "choose_language"),
-        reply_markup=language_keyboard()
+        reply_markup=ReplyKeyboardRemove()
     )
 
 
