@@ -567,3 +567,14 @@ async def set_referrer_if_empty(user_id: int, referrer_id: int) -> bool:
         )
         await db.commit()
         return True
+
+
+async def get_messages(user_id: int, limit: int = 100):
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            "SELECT * FROM messages WHERE user_id = ? ORDER BY id ASC LIMIT ?",
+            (user_id, limit),
+        )
+        rows = await cursor.fetchall()
+        return [dict(r) for r in rows]
