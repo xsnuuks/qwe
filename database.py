@@ -46,7 +46,7 @@ async def init_db():
             await db.execute("ALTER TABLE users ADD COLUMN is_blocked INTEGER DEFAULT 0")
         except Exception:
             pass
-                    try:
+        try:
             await db.execute("ALTER TABLE orders ADD COLUMN city TEXT")
         except Exception:
             pass
