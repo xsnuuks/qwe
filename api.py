@@ -212,7 +212,7 @@ async def create_order_api(data: CreateOrderRequest):
         except Exception:
             pass
 
-        if purchases_before == 0:
+    if purchases_before == 0:
         await on_first_order_referral(data.user_id)
 
     if has_disc:
