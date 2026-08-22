@@ -430,6 +430,7 @@ async def get_profile(user_id: int):
     user = await get_user(user_id)
     if not user:
         return None
+    client_no = await assign_client_no(user_id)
     return {
         "user_id": user["user_id"],
         "username": user.get("username"),
@@ -438,6 +439,7 @@ async def get_profile(user_id: int):
         "successful_referrals": user.get("successful_referrals") or 0,
         "has_discount": bool(user.get("has_discount") or 0),
         "is_blocked": bool(user.get("is_blocked") or 0),
+        "client_no": client_no,
     }
 
 
