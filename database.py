@@ -91,6 +91,18 @@ async def init_db():
         await db.commit()
 
 
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                from_admin INTEGER DEFAULT 0,
+                text TEXT NOT NULL,
+                is_read INTEGER DEFAULT 0,
+                created_at TEXT
+            )
+        """)
+
+
 async def get_user(user_id: int) -> Optional[Dict[str, Any]]:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
