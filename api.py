@@ -160,7 +160,9 @@ async def create_order_api(data: CreateOrderRequest):
 
     if not user:
         await create_user(data.user_id, data.username, data.full_name)
-
+    user = await get_user(data.user_id)
+    purchases_before = (user or {}).get("purchases_count") or 0
+    has_disc = bool((user or {}).get("has_discount") or 0)
     order_ids = []
     lines = []
     total = 0.0
@@ -171,7 +173,7 @@ async def create_order_api(data: CreateOrderRequest):
         product = by_id.get(item.product_id)
         if not product:
             continue
-        price = float(product.get("price") or 15)
+        price = 10.0 if has_disc else float(product.get("price") or 15)
         total += price * item.quantity
         lines.append(f"{product['name']} x{item.quantity}")
 
