@@ -228,16 +228,51 @@ async def admin_orders(x_admin_id: Optional[str] = Header(None)):
     return await get_pending_orders()
 
 
+class OrderStatusIn(BaseModel):
+    status: str
+
+
 @app.post("/admin/orders/{order_id}/status")
-async def admin_order_status(order_id: int, data: StatusRequest, x_admin_id: Optional[str] = Header(None)):
-    check_admin(x_admin_id)
-    if data.status == "done":
-        await complete_order(order_id)
-    else:
-        async with aiosqlite.connect(DB_PATH) as db:
-            await db.execute("UPDATE orders SET status = ? WHERE id = ?", (data.status, order_id))
-            await db.commit()
-    return {"ok": True}
+async def admin_set_order_status(
+    order_id: int,
+    data: OrderStatusIn,
+    x_admin_id: Optional[str] = Header(None),
+):
+    require_admin(x_admin_id)
+    status = (data.status or "").strip().lower()
+    if status not in ("pending", "progress", "done", "cancelled", "new"):
+        raise HTTPException(status_code=400, detail="Bad status")
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute("SELECT * FROM orders WHERE id = ?", (order_id,))
+        order = await cur.fetchone()
+        if not order:
+            raise HTTPException(status_code=404, detail="Not found")
+        await db.execute(
+            "UPDATE orders SET status = ? WHERE id = ?",
+            (status, order_id),
+        )
+        await db.commit()
+        user_id = order["user_id"]
+
+    labels = {
+        "pending": "ожидает",
+        "new": "ожидает",
+        "progress": "в процессе",
+        "done": "выполнен",
+        "cancelled": "отменён",
+    }
+    if bot and user_id:
+        try:
+            await bot.send_message(
+                user_id,
+                f"Заказ #{order_id}: статус «{labels.get(status, status)}».",
+            )
+        except Exception:
+            pass
+
+    return {"ok": True, "status": status}
 
 
 @app.post("/admin/products")
