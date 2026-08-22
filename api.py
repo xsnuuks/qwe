@@ -28,7 +28,7 @@ from database import (
     update_product,add_message,
     get_messages,
     get_chat_list,
-    mark_messages_read,
+    mark_messages_read, get_profile,
 )
 
 app = FastAPI()
