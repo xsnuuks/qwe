@@ -517,3 +517,26 @@ async def admin_chat_reply(user_id: int, data: AdminReplyIn, x_admin_id: Optiona
             pass
 
     return {"ok": True, "id": msg_id}
+
+
+@app.get("/favorites/{user_id}")
+async def favorites_list(user_id: int):
+    rows = await get_favorite_products(user_id)
+    return [product_to_dict(p) for p in rows]
+
+
+@app.get("/favorites/{user_id}/ids")
+async def favorites_ids(user_id: int):
+    return await get_favorite_ids(user_id)
+
+
+@app.post("/favorites/{user_id}/{product_id}")
+async def favorites_add(user_id: int, product_id: int):
+    await add_favorite(user_id, product_id)
+    return {"ok": True}
+
+
+@app.delete("/favorites/{user_id}/{product_id}")
+async def favorites_remove(user_id: int, product_id: int):
+    await remove_favorite(user_id, product_id)
+    return {"ok": True}
