@@ -279,18 +279,19 @@ async def complete_order(order_id: int):
         return True
 
 
-async def get_pending_orders() -> List[Dict[str, Any]]:
+async def get_pending_orders():
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-        async with db.execute(
-            """SELECT o.*, u.username, u.full_name, p.name as product_name 
-               FROM orders o 
-               JOIN users u ON o.user_id = u.user_id 
-               LEFT JOIN products p ON o.product_id = p.id
-               WHERE o.status IN ('new', 'pending', 'progress') ORDER BY o.created_at DESC
-        ) as cursor:
-            rows = await cursor.fetchall()
-            return [dict(row) for row in rows]
+        cursor = await db.execute(
+            "SELECT o.*, u.username, u.full_name, p.name as product_name "
+            "FROM orders o "
+            "JOIN users u ON o.user_id = u.user_id "
+            "LEFT JOIN products p ON o.product_id = p.id "
+            "WHERE o.status IN ('new', 'pending', 'progress') "
+            "ORDER BY o.created_at DESC"
+        )
+        rows = await cursor.fetchall()
+        return [dict(row) for row in rows]
 
 
 async def get_stats() -> Dict[str, Any]:
