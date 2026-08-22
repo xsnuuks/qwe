@@ -326,3 +326,17 @@ async def admin_broadcast(data: BroadcastRequest, x_admin_id: Optional[str] = He
 async def admin_stats(x_admin_id: Optional[str] = Header(None)):
     check_admin(x_admin_id)
     return await get_stats()
+
+
+@app.get("/profile/{user_id}")
+async def profile(user_id: int):
+    data = await get_profile(user_id)
+    if not data:
+        return {
+            "user_id": user_id,
+            "purchases_count": 0,
+            "successful_referrals": 0,
+            "has_discount": False,
+            "is_blocked": False,
+        }
+    return data
