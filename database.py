@@ -66,6 +66,10 @@ async def init_db():
             await db.execute("ALTER TABLE orders ADD COLUMN total REAL")
         except Exception:
             pass
+        try:
+            await db.execute("ALTER TABLE users ADD COLUMN client_no INTEGER")
+        except Exception:
+            pass
         await db.execute("""
             CREATE TABLE IF NOT EXISTS orders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
