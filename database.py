@@ -125,6 +125,7 @@ async def create_user(user_id: int, username: str = None, full_name: str = None,
             (user_id, username, full_name, language, referrer_id, datetime.now().isoformat())
         )
         await db.commit()
+    await assign_client_no(user_id)
 
 
 async def update_user_language(user_id: int, language: str):
