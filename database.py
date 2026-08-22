@@ -468,30 +468,18 @@ async def get_messages(user_id: int, limit: int = 100):
 async def get_chat_list():
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-        cursor = await db.execute(
-            """
-            SELECT
-                m.user_id AS user_id,
-                u.username AS username,
-                u.full_name AS full_name,
-                m.text AS last_text,
-                m.created_at AS last_at,
-                (
-                    SELECT COUNT(*) FROM messages mx
-                    WHERE mx.user_id = m.user_id
-                      AND mx.from_admin = 0
-                      AND mx.is_read = 0
-                ) AS unread
-            FROM messages m
-            LEFT JOIN users u ON u.user_id = m.user_id
-            INNER JOIN (
-                SELECT user_id, MAX(id) AS max_id
-                FROM messages
-                GROUP BY user_id
-            ) t ON t.user_id = m.user_id AND t.max_id = m.id
-            ORDER BY m.id DESC
-            """
+        sql = (
+            "SELECT m.user_id AS user_id, u.username AS username, u.full_name AS full_name, "
+            "m.text AS last_text, m.created_at AS last_at, "
+            "(SELECT COUNT(*) FROM messages mx WHERE mx.user_id = m.user_id "
+            "AND mx.from_admin = 0 AND mx.is_read = 0) AS unread "
+            "FROM messages m "
+            "LEFT JOIN users u ON u.user_id = m.user_id "
+            "INNER JOIN (SELECT user_id, MAX(id) AS max_id FROM messages GROUP BY user_id) t "
+            "ON t.user_id = m.user_id AND t.max_id = m.id "
+            "ORDER BY m.id DESC"
         )
+        cursor = await db.execute(sql)
         rows = await cursor.fetchall()
         return [dict(r) for r in rows]
 
