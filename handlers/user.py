@@ -74,7 +74,7 @@ async def cmd_start(message: Message, command: CommandObject, bot: Bot, lang: st
 
     await message.answer(
         get_text(lang, "welcome"),
-        reply_markup=main_menu_keyboard(lang, is_admin(user_id)),
+        reply_markup=ReplyKeyboardRemove()(lang, is_admin(user_id)),
         parse_mode="HTML"
     )
 
