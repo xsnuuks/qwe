@@ -61,7 +61,7 @@ async def cmd_start(message: Message, command: CommandObject, bot: Bot, lang: st
             except Exception:
                 pass
 
-        kb = InlineKeyboardMarkup(
+    kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
