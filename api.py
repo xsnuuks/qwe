@@ -31,7 +31,7 @@ from database import (
     mark_messages_read, get_profile, on_first_order_referral,
     use_discount_and_decrement,
     increment_purchases,
-    get_profile,
+    get_profile, on_first_order_referral,
 )
 
 app = FastAPI()
