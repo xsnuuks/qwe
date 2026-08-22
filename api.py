@@ -60,6 +60,7 @@ class CreateOrderRequest(BaseModel):
     full_name: Optional[str] = None
     city: str
     payment: str
+    place: str = ""
     items: List[OrderItem]
 
 
