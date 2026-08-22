@@ -510,3 +510,89 @@ async def mark_messages_read(user_id: int, from_admin_side: bool):
                 (user_id,),
             )
         await db.commit()
+
+
+async def set_referrer_if_empty(user_id: int, referrer_id: int) -> bool:
+    if user_id == referrer_id:
+        return False
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute("SELECT referrer_id FROM users WHERE user_id = ?", (user_id,))
+        row = await cur.fetchone()
+        if not row:
+            return False
+        if row["referrer_id"]:
+            return False
+        # referrer must exist
+        cur2 = await db.execute("SELECT user_id FROM users WHERE user_id = ?", (referrer_id,))
+        if not await cur2.fetchone():
+            return False
+        await db.execute(
+            "UPDATE users SET referrer_id = ? WHERE user_id = ? AND (referrer_id IS NULL OR referrer_id = 0)",
+            (referrer_id, user_id),
+        )
+        await db.commit()
+        return True
+
+
+async def on_first_order_referral(user_id: int):
+    """Call once when user places first successful order."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            "SELECT referrer_id, purchases_count FROM users WHERE user_id = ?",
+            (user_id,),
+        )
+        user = await cur.fetchone()
+        if not user:
+            return
+        # already had purchases -> not first order
+        if (user["purchases_count"] or 0) > 0:
+            return
+        ref = user["referrer_id"]
+        if not ref:
+            return
+        await db.execute(
+            "UPDATE users SET successful_referrals = COALESCE(successful_referrals, 0) + 1 WHERE user_id = ?",
+            (ref,),
+        )
+        cur2 = await db.execute(
+            "SELECT successful_referrals FROM users WHERE user_id = ?",
+            (ref,),
+        )
+        ref_user = await cur2.fetchone()
+        if ref_user and (ref_user["successful_referrals"] or 0) >= 2:
+            await db.execute(
+                "UPDATE users SET has_discount = 1 WHERE user_id = ?",
+                (ref,),
+            )
+        await db.commit()
+
+
+async def use_discount_and_decrement(user_id: int) -> bool:
+    """Use discount if available. Returns True if discount applied."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            "SELECT has_discount, successful_referrals FROM users WHERE user_id = ?",
+            (user_id,),
+        )
+        row = await cur.fetchone()
+        if not row or not row["has_discount"]:
+            return False
+        refs = max(0, (row["successful_referrals"] or 0) - 2)
+        await db.execute(
+            "UPDATE users SET has_discount = 0, successful_referrals = ? WHERE user_id = ?",
+            (refs, user_id),
+        )
+        await db.commit()
+        return True
+
+
+async def increment_purchases(user_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE users SET purchases_count = COALESCE(purchases_count, 0) + 1 WHERE user_id = ?",
+            (user_id,),
+        )
+        await db.commit()
