@@ -133,6 +133,9 @@ async def products():
 @app.post("/orders")
 async def create_order_api(data: CreateOrderRequest):
     user = await get_user(data.user_id)
+    if user and user.get("is_blocked"):
+        raise HTTPException(status_code=403, detail="Blocked")
+
     if not user:
         await create_user(data.user_id, data.username, data.full_name)
 
@@ -146,12 +149,28 @@ async def create_order_api(data: CreateOrderRequest):
         product = by_id.get(item.product_id)
         if not product:
             continue
-        for _ in range(item.quantity):
-            oid = await create_order(data.user_id, item.product_id, used_discount=False)
-            order_ids.append(oid)
         price = float(product.get("price") or 15)
         total += price * item.quantity
         lines.append(f"{product['name']} x{item.quantity}")
+
+    items_text = ", ".join(lines)
+
+    for item in data.items:
+        product = by_id.get(item.product_id)
+        if not product:
+            continue
+        for _ in range(item.quantity):
+            oid = await create_order(
+                data.user_id,
+                item.product_id,
+                used_discount=False,
+                city=data.city,
+                payment=data.payment,
+                place=data.place,
+                items_text=items_text,
+                total=total,
+            )
+            order_ids.append(oid)
 
     if bot and ADMIN_ID:
         text = (
@@ -159,6 +178,7 @@ async def create_order_api(data: CreateOrderRequest):
             f"От: {data.full_name or '—'} (@{data.username or '—'})\n"
             f"ID: {data.user_id}\n"
             f"Город: {data.city}\n"
+            f"Место: {data.place or '—'}\n"
             f"Оплата: {data.payment}\n"
             f"Товары:\n" + "\n".join(f"• {l}" for l in lines) + f"\n\n"
             f"Итого: {total} €"
