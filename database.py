@@ -440,10 +440,7 @@ async def get_profile(user_id: int):
 async def add_message(user_id: int, text: str, from_admin: bool = False) -> int:
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
-            """
-            INSERT INTO messages (user_id, from_admin, text, is_read, created_at)
-            VALUES (?, ?, ?, 0, ?)
-            """,
+            "INSERT INTO messages (user_id, from_admin, text, is_read, created_at) VALUES (?, ?, ?, 0, ?)",
             (user_id, int(from_admin), text, datetime.now().isoformat()),
         )
         await db.commit()
