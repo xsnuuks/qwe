@@ -1,17 +1,32 @@
-from fastapi import FastAPI, Header, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Optional
-from database import (
-    get_all_products, create_order, get_user, create_user,
-    get_pending_orders, update_product, get_users_page, get_users_count,
-    set_user_blocked, get_all_user_ids, get_stats, complete_order
-)
-from config import ADMIN_ID, BOT_TOKEN
-from aiogram import Bot
-import aiosqlite
-from database import DB_PATH
+import os
+import uuid
 from datetime import datetime
+from typing import List, Optional
+
+import aiosqlite
+from aiogram import Bot
+from fastapi import FastAPI, File, Header, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
+
+from config import ADMIN_ID, BOT_TOKEN
+from database import (
+    DB_PATH,
+    add_product,
+    complete_order,
+    create_order,
+    create_user,
+    get_all_products,
+    get_all_user_ids,
+    get_pending_orders,
+    get_stats,
+    get_user,
+    get_users_count,
+    get_users_page,
+    set_user_blocked,
+    update_product,
+)
 
 app = FastAPI()
 
@@ -22,11 +37,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+PHOTOS_DIR = "/data/photos"
+os.makedirs(PHOTOS_DIR, exist_ok=True)
+app.mount("/media", StaticFiles(directory=PHOTOS_DIR), name="media")
+
 bot = Bot(token=BOT_TOKEN) if BOT_TOKEN else None
 
 
 def check_admin(x_admin_id: Optional[str] = Header(None)):
-    if not x_admin_id or int(x_admin_id) != ADMIN_ID:
+    if not x_admin_id or int(x_admin_id) != int(ADMIN_ID):
         raise HTTPException(status_code=403, detail="Forbidden")
 
 
@@ -45,13 +64,25 @@ class CreateOrderRequest(BaseModel):
 
 
 class StatusRequest(BaseModel):
-    status: str  # done | cancelled | new
+    status: str
+
+
+class ProductCreate(BaseModel):
+    name: str
+    price: float = 15
+    volume: str = "30ML"
+    strength: str = "50MG"
+    description: str = ""
+    is_available: bool = True
 
 
 class ProductUpdate(BaseModel):
-    is_available: Optional[bool] = None
     name: Optional[str] = None
     price: Optional[float] = None
+    volume: Optional[str] = None
+    strength: Optional[str] = None
+    description: Optional[str] = None
+    is_available: Optional[bool] = None
 
 
 class BroadcastRequest(BaseModel):
@@ -62,6 +93,31 @@ class BlockRequest(BaseModel):
     blocked: bool
 
 
+class WriteUserRequest(BaseModel):
+    text: str
+
+
+def product_to_dict(p: dict) -> dict:
+    photo = p.get("photo_file_id") or ""
+    photo_url = None
+    if photo.startswith("http"):
+        photo_url = photo
+    elif photo.startswith("/media/"):
+        photo_url = photo
+    elif photo.endswith((".jpg", ".jpeg", ".png", ".webp")):
+        photo_url = f"/media/{photo}"
+    return {
+        "id": p["id"],
+        "name": p["name"],
+        "volume": p.get("volume") or "30ML",
+        "strength": p.get("strength") or "50MG",
+        "price": float(p.get("price") or 15),
+        "available": bool(p.get("is_available", 1)),
+        "description": p.get("description") or "",
+        "photo": photo_url,
+    }
+
+
 @app.get("/")
 async def root():
     return {"ok": True, "service": "mono-api"}
@@ -70,19 +126,7 @@ async def root():
 @app.get("/products")
 async def products():
     rows = await get_all_products(only_available=False)
-    result = []
-    for p in rows:
-        result.append({
-            "id": p["id"],
-            "name": p["name"],
-            "volume": p.get("volume") or "30ML",
-            "strength": p.get("strength") or "50MG",
-            "price": p.get("price") or 15,
-            "available": bool(p.get("is_available", 1)),
-            "photo_file_id": p.get("photo_file_id"),
-            "description": p.get("description") or "",
-        })
-    return result
+    return [product_to_dict(p) for p in rows]
 
 
 @app.post("/orders")
@@ -94,7 +138,6 @@ async def create_order_api(data: CreateOrderRequest):
     order_ids = []
     lines = []
     total = 0.0
-
     products = await get_all_products(only_available=False)
     by_id = {p["id"]: p for p in products}
 
@@ -117,8 +160,7 @@ async def create_order_api(data: CreateOrderRequest):
             f"Город: {data.city}\n"
             f"Оплата: {data.payment}\n"
             f"Товары:\n" + "\n".join(f"• {l}" for l in lines) + f"\n\n"
-            f"Итого: {total} €\n"
-            f"Заказы: {', '.join(str(i) for i in order_ids)}"
+            f"Итого: {total} €"
         )
         try:
             await bot.send_message(ADMIN_ID, text)
@@ -128,13 +170,10 @@ async def create_order_api(data: CreateOrderRequest):
     return {"ok": True, "order_ids": order_ids, "total": total}
 
 
-# ===== ADMIN =====
-
 @app.get("/admin/orders")
 async def admin_orders(x_admin_id: Optional[str] = Header(None)):
     check_admin(x_admin_id)
-    rows = await get_pending_orders()
-    return rows
+    return await get_pending_orders()
 
 
 @app.post("/admin/orders/{order_id}/status")
@@ -149,19 +188,68 @@ async def admin_order_status(order_id: int, data: StatusRequest, x_admin_id: Opt
     return {"ok": True}
 
 
+@app.post("/admin/products")
+async def admin_product_create(data: ProductCreate, x_admin_id: Optional[str] = Header(None)):
+    check_admin(x_admin_id)
+    pid = await add_product(
+        name=data.name,
+        description=data.description,
+        price=data.price,
+        volume=data.volume,
+        strength=data.strength,
+    )
+    if not data.is_available:
+        await update_product(pid, is_available=0)
+    return {"ok": True, "id": pid}
+
+
 @app.post("/admin/products/{product_id}")
 async def admin_product_update(product_id: int, data: ProductUpdate, x_admin_id: Optional[str] = Header(None)):
     check_admin(x_admin_id)
     payload = {}
-    if data.is_available is not None:
-        payload["is_available"] = 1 if data.is_available else 0
     if data.name is not None:
         payload["name"] = data.name
     if data.price is not None:
         payload["price"] = data.price
+    if data.volume is not None:
+        payload["volume"] = data.volume
+    if data.strength is not None:
+        payload["strength"] = data.strength
+    if data.description is not None:
+        payload["description"] = data.description
+    if data.is_available is not None:
+        payload["is_available"] = 1 if data.is_available else 0
     if payload:
         await update_product(product_id, **payload)
     return {"ok": True}
+
+
+@app.delete("/admin/products/{product_id}")
+async def admin_product_delete(product_id: int, x_admin_id: Optional[str] = Header(None)):
+    check_admin(x_admin_id)
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM products WHERE id = ?", (product_id,))
+        await db.commit()
+    return {"ok": True}
+
+
+@app.post("/admin/products/{product_id}/photo")
+async def admin_product_photo(
+    product_id: int,
+    file: UploadFile = File(...),
+    x_admin_id: Optional[str] = Header(None),
+):
+    check_admin(x_admin_id)
+    ext = os.path.splitext(file.filename or "")[1].lower() or ".jpg"
+    if ext not in [".jpg", ".jpeg", ".png", ".webp"]:
+        ext = ".jpg"
+    filename = f"{product_id}_{uuid.uuid4().hex[:8]}{ext}"
+    path = os.path.join(PHOTOS_DIR, filename)
+    content = await file.read()
+    with open(path, "wb") as f:
+        f.write(content)
+    await update_product(product_id, photo_file_id=filename)
+    return {"ok": True, "photo": f"/media/{filename}"}
 
 
 @app.get("/admin/users")
@@ -177,6 +265,18 @@ async def admin_block_user(user_id: int, data: BlockRequest, x_admin_id: Optiona
     check_admin(x_admin_id)
     await set_user_blocked(user_id, data.blocked)
     return {"ok": True}
+
+
+@app.post("/admin/users/{user_id}/message")
+async def admin_write_user(user_id: int, data: WriteUserRequest, x_admin_id: Optional[str] = Header(None)):
+    check_admin(x_admin_id)
+    if not bot:
+        raise HTTPException(status_code=500, detail="Bot not available")
+    try:
+        await bot.send_message(user_id, data.text)
+        return {"ok": True}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post("/admin/broadcast")
