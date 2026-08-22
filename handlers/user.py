@@ -61,21 +61,21 @@ async def cmd_start(message: Message, command: CommandObject, bot: Bot, lang: st
             except Exception:
                 pass
 
+        kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="Открыть магазин",
+                    web_app=WebAppInfo(url="https://mono-miniapp.vercel.app"),
+                )
+            ]
+        ]
+    )
     await message.answer(
         "Добро пожаловать в MONO.\n\n"
         "Минимализм. Качество. Только проверенные жидкости.\n\n"
         "Откройте мини-приложение, чтобы посмотреть каталог и оформить заказ.",
-        reply_markup=ReplyKeyboardRemove(),
-    )
-
-    lang = existing["language"]
-    if referrer_id and not existing.get("referrer_id"):
-        await set_referrer_if_empty(user_id, referrer_id)
-
-    await message.answer(
-        get_text(lang, "welcome"),
-        reply_markup=ReplyKeyboardRemove()(lang, is_admin(user_id)),
-        parse_mode="HTML"
+        reply_markup=kb,
     )
 
 
