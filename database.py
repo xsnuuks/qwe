@@ -343,11 +343,11 @@ async def get_users_count() -> int:
 
 async def add_to_cart(user_id: int, product_id: int, quantity: int = 1):
     async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("""
-            INSERT INTO cart (user_id, product_id, quantity)
-            VALUES (?, ?, ?)
-            ON CONFLICT(user_id, product_id) DO UPDATE SET quantity = quantity + ?
-        """, (user_id, product_id, quantity, quantity))
+        await db.execute(
+            "INSERT INTO cart (user_id, product_id, quantity) VALUES (?, ?, ?) "
+            "ON CONFLICT(user_id, product_id) DO UPDATE SET quantity = quantity + ?",
+            (user_id, product_id, quantity, quantity),
+        )
         await db.commit()
 
 
