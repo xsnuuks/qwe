@@ -536,7 +536,6 @@ async def set_referrer_if_empty(user_id: int, referrer_id: int) -> bool:
 
 
 async def on_first_order_referral(user_id: int):
-    """Call once when user places first successful order."""
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         cur = await db.execute(
@@ -546,7 +545,6 @@ async def on_first_order_referral(user_id: int):
         user = await cur.fetchone()
         if not user:
             return
-        # already had purchases -> not first order
         if (user["purchases_count"] or 0) > 0:
             return
         ref = user["referrer_id"]
@@ -570,7 +568,6 @@ async def on_first_order_referral(user_id: int):
 
 
 async def use_discount_and_decrement(user_id: int) -> bool:
-    """Use discount if available. Returns True if discount applied."""
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         cur = await db.execute(
