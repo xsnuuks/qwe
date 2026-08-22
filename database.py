@@ -582,3 +582,26 @@ async def get_messages(user_id: int, limit: int = 100):
         )
         rows = await cursor.fetchall()
         return [dict(r) for r in rows]
+
+
+async def assign_client_no(user_id: int) -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            "SELECT client_no FROM users WHERE user_id = ?",
+            (user_id,),
+        )
+        row = await cur.fetchone()
+        if row and row["client_no"]:
+            return int(row["client_no"])
+        cur2 = await db.execute(
+            "SELECT COALESCE(MAX(client_no), 0) FROM users"
+        )
+        m = await cur2.fetchone()
+        next_no = int(m[0] or 0) + 1
+        await db.execute(
+            "UPDATE users SET client_no = ? WHERE user_id = ?",
+            (next_no, user_id),
+        )
+        await db.commit()
+        return next_no
