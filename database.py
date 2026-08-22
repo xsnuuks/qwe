@@ -375,17 +375,16 @@ async def update_cart_quantity(user_id: int, product_id: int, quantity: int):
         await db.commit()
 
 
-async def get_cart(user_id: int) -> List[Dict[str, Any]]:
+async def get_cart(user_id: int):
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-        async with db.execute("""
-            SELECT c.product_id, c.quantity, p.name, p.price, p.photo_file_id
-            FROM cart c
-            JOIN products p ON p.id = c.product_id
-            WHERE c.user_id = ?
-        """, (user_id,)) as cursor:
-            rows = await cursor.fetchall()
-            return [dict(row) for row in rows]
+        cursor = await db.execute(
+            "SELECT c.product_id, c.quantity, p.name, p.price, p.photo_file_id "
+            "FROM cart c JOIN products p ON p.id = c.product_id WHERE c.user_id = ?",
+            (user_id,),
+        )
+        rows = await cursor.fetchall()
+        return [dict(row) for row in rows]
 
 
 async def clear_cart(user_id: int):
