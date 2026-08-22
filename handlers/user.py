@@ -52,10 +52,21 @@ async def cmd_start(message: Message, command: CommandObject, bot: Bot, lang: st
     existing = await get_user(user_id)
     if not existing:
         await create_user(user_id, username, full_name, "ru", referrer_id)
-        await message.answer(
-            get_text("ru", "choose_language"),
-            reply_markup=ReplyKeyboardRemove()
-        )
+    elif referrer_id:
+        try:
+            await set_referrer_if_empty(user_id, referrer_id)
+        except Exception:
+            try:
+                await set_referrer(user_id, referrer_id)
+            except Exception:
+                pass
+
+    await message.answer(
+        "Добро пожаловать в MONO.\n\n"
+        "Минимализм. Качество. Только проверенные жидкости.\n\n"
+        "Откройте мини-приложение, чтобы посмотреть каталог и оформить заказ.",
+        reply_markup=ReplyKeyboardRemove(),
+    )
         return
 
     lang = existing["language"]
