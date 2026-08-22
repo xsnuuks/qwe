@@ -343,3 +343,111 @@ async def profile(user_id: int):
             "is_blocked": False,
         }
     return data
+
+class SupportMessageIn(BaseModel):
+    user_id: int
+    text: str
+
+
+class AdminReplyIn(BaseModel):
+    text: str
+
+
+@app.post("/support/send")
+async def support_send(data: SupportMessageIn):
+    text = (data.text or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Empty")
+    if len(text) > 2000:
+        raise HTTPException(status_code=400, detail="Too long")
+
+    user = await get_user(data.user_id)
+    if user and user.get("is_blocked"):
+        raise HTTPException(status_code=403, detail="Blocked")
+
+    if not user:
+        await create_user(data.user_id, None, None)
+
+    msg_id = await add_message(data.user_id, text, from_admin=False)
+
+    if bot and ADMIN_ID:
+        name = (user or {}).get("full_name") or "—"
+        username = (user or {}).get("username") or "—"
+        try:
+            await bot.send_message(
+                ADMIN_ID,
+                f"💬 Поддержка\n\nОт: {name} (@{username})\nID: {data.user_id}\n\n{text}\n\nОтветь в Mini App → Админ → Чаты",
+            )
+        except Exception:
+            pass
+
+    return {"ok": True, "id": msg_id}
+
+
+@app.get("/support/messages/{user_id}")
+async def support_messages(user_id: int):
+    await mark_messages_read(user_id, from_admin_side=False)
+    rows = await get_messages(user_id)
+    return [
+        {
+            "id": r["id"],
+            "text": r["text"],
+            "from_admin": bool(r["from_admin"]),
+            "created_at": r["created_at"],
+        }
+        for r in rows
+    ]
+
+
+@app.get("/admin/chats")
+async def admin_chats(x_admin_id: Optional[str] = Header(None)):
+    require_admin(x_admin_id)
+    rows = await get_chat_list()
+    return [
+        {
+            "user_id": r["user_id"],
+            "username": r.get("username"),
+            "full_name": r.get("full_name"),
+            "last_text": r.get("last_text"),
+            "last_at": r.get("last_at"),
+            "unread": r.get("unread") or 0,
+        }
+        for r in rows
+    ]
+
+
+@app.get("/admin/chats/{user_id}")
+async def admin_chat_messages(user_id: int, x_admin_id: Optional[str] = Header(None)):
+    require_admin(x_admin_id)
+    await mark_messages_read(user_id, from_admin_side=True)
+    rows = await get_messages(user_id)
+    return [
+        {
+            "id": r["id"],
+            "text": r["text"],
+            "from_admin": bool(r["from_admin"]),
+            "created_at": r["created_at"],
+        }
+        for r in rows
+    ]
+
+
+@app.post("/admin/chats/{user_id}/reply")
+async def admin_chat_reply(user_id: int, data: AdminReplyIn, x_admin_id: Optional[str] = Header(None)):
+    require_admin(x_admin_id)
+    text = (data.text or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Empty")
+
+    msg_id = await add_message(user_id, text, from_admin=True)
+
+    if bot:
+        try:
+            await bot.send_message(
+                user_id,
+                "💬 Поддержка ответила.\nОткройте магазин → Профиль → Поддержка",
+            )
+        except Exception:
+            pass
+
+    return {"ok": True, "id": msg_id}
