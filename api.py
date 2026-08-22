@@ -28,7 +28,10 @@ from database import (
     update_product,add_message,
     get_messages,
     get_chat_list,
-    mark_messages_read, get_profile,
+    mark_messages_read, get_profile, on_first_order_referral,
+    use_discount_and_decrement,
+    increment_purchases,
+    get_profile,
 )
 
 app = FastAPI()
