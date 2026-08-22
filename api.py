@@ -283,16 +283,22 @@ async def admin_write_user(user_id: int, data: WriteUserRequest, x_admin_id: Opt
 async def admin_broadcast(data: BroadcastRequest, x_admin_id: Optional[str] = Header(None)):
     check_admin(x_admin_id)
     if not bot:
-        return {"ok": False, "sent": 0}
+        return {"ok": False, "sent": 0, "failed": []}
     ids = await get_all_user_ids()
     sent = 0
+    failed = []
     for uid in ids:
         try:
             await bot.send_message(uid, data.text)
             sent += 1
         except Exception:
-            pass
-    return {"ok": True, "sent": sent}
+            u = await get_user(uid)
+            failed.append({
+                "user_id": uid,
+                "username": (u or {}).get("username"),
+                "full_name": (u or {}).get("full_name") or "—",
+            })
+    return {"ok": True, "sent": sent, "failed": failed}
 
 
 @app.get("/admin/stats")
