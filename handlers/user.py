@@ -54,7 +54,7 @@ async def cmd_start(message: Message, command: CommandObject, bot: Bot, lang: st
         await create_user(user_id, username, full_name, "ru", referrer_id)
         await message.answer(
             get_text("ru", "choose_language"),
-            reply_markup=language_keyboard()
+            reply_markup=ReplyKeyboardRemove()
         )
         return
 
