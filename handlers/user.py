@@ -67,7 +67,6 @@ async def cmd_start(message: Message, command: CommandObject, bot: Bot, lang: st
         "Откройте мини-приложение, чтобы посмотреть каталог и оформить заказ.",
         reply_markup=ReplyKeyboardRemove(),
     )
-        return
 
     lang = existing["language"]
     if referrer_id and not existing.get("referrer_id"):
