@@ -60,7 +60,7 @@ async def cmd_start(message: Message, command: CommandObject, bot: Bot, lang: st
 
     lang = existing["language"]
     if referrer_id and not existing.get("referrer_id"):
-        await set_referrer(user_id, referrer_id)
+        await set_referrer_if_empty(user_id, referrer_id)
 
     await message.answer(
         get_text(lang, "welcome"),
