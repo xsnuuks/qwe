@@ -194,10 +194,37 @@ async def update_product(product_id: int, **kwargs):
         await db.commit()
 
 
-async def create_order(user_id: int, product_id: int, used_discount: bool = False) -> int:
+async def create_order(
+    user_id: int,
+    product_id: int,
+    used_discount: bool = False,
+    city: str = None,
+    payment: str = None,
+    place: str = None,
+    items_text: str = None,
+    total: float = None,
+) -> int:
     async with aiosqlite.connect(DB_PATH) as db:
-        sql = "INSERT INTO orders (user_id, product_id, used_discount, status, created_at) VALUES (?, ?, ?, 'new', ?)"
-        cursor = await db.execute(sql, (user_id, product_id, int(used_discount), datetime.now().isoformat()))
+        sql = """
+            INSERT INTO orders (
+                user_id, product_id, used_discount, status, created_at,
+                city, payment, place, items_text, total
+            ) VALUES (?, ?, ?, 'new', ?, ?, ?, ?, ?, ?)
+        """
+        cursor = await db.execute(
+            sql,
+            (
+                user_id,
+                product_id,
+                int(used_discount),
+                datetime.now().isoformat(),
+                city,
+                payment,
+                place,
+                items_text,
+                total,
+            ),
+        )
         await db.commit()
         return cursor.lastrowid
 
@@ -380,3 +407,18 @@ async def set_order_status(order_id: int, status: str) -> dict | None:
         )
         await db.commit()
         return order
+
+
+async def get_profile(user_id: int):
+    user = await get_user(user_id)
+    if not user:
+        return None
+    return {
+        "user_id": user["user_id"],
+        "username": user.get("username"),
+        "full_name": user.get("full_name"),
+        "purchases_count": user.get("purchases_count") or 0,
+        "successful_referrals": user.get("successful_referrals") or 0,
+        "has_discount": bool(user.get("has_discount") or 0),
+        "is_blocked": bool(user.get("is_blocked") or 0),
+    }
