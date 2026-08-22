@@ -121,6 +121,14 @@ def product_to_dict(p: dict) -> dict:
         "photo": photo_url,
     }
 
+def require_admin(x_admin_id: Optional[str] = None):
+    if not x_admin_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    try:
+        if int(x_admin_id) != int(ADMIN_ID):
+            raise HTTPException(status_code=403, detail="Forbidden")
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Forbidden")
 
 @app.get("/")
 async def root():
