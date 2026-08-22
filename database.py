@@ -436,6 +436,7 @@ async def get_profile(user_id: int):
     }
 
 
+
 async def add_message(user_id: int, text: str, from_admin: bool = False) -> int:
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
@@ -447,22 +448,6 @@ async def add_message(user_id: int, text: str, from_admin: bool = False) -> int:
         )
         await db.commit()
         return cursor.lastrowid
-
-
-async def get_messages(user_id: int, limit: int = 100):
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        cursor = await db.execute(
-            """
-            SELECT * FROM messages
-            WHERE user_id = ?
-            ORDER BY id ASC
-            LIMIT ?
-            """,
-            (user_id, limit),
-        )
-        rows = await cursor.fetchall()
-        return [dict(r) for r in rows]
 
 
 async def get_chat_list():
