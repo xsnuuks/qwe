@@ -212,6 +212,13 @@ async def create_order_api(data: CreateOrderRequest):
         except Exception:
             pass
 
+        if purchases_before == 0:
+        await on_first_order_referral(data.user_id)
+
+    if has_disc:
+        await use_discount_and_decrement(data.user_id)
+
+    await increment_purchases(data.user_id)
     return {"ok": True, "order_ids": order_ids, "total": total}
 
 
