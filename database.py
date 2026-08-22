@@ -471,23 +471,24 @@ async def get_chat_list():
         cursor = await db.execute(
             """
             SELECT
-                m.user_id,
-                u.username,
-                u.full_name,
+                m.user_id AS user_id,
+                u.username AS username,
+                u.full_name AS full_name,
                 m.text AS last_text,
                 m.created_at AS last_at,
-                m.from_admin AS last_from_admin,
                 (
-                    SELECT COUNT(*) FROM messages m2
-                    WHERE m2.user_id = m.user_id
-                      AND m2.from_admin = 0
-                      AND m2.is_read = 0
+                    SELECT COUNT(*) FROM messages mx
+                    WHERE mx.user_id = m.user_id
+                      AND mx.from_admin = 0
+                      AND mx.is_read = 0
                 ) AS unread
             FROM messages m
-            JOIN users u ON u.user_id = m.user_id
-            WHERE m.id = (
-                SELECT MAX(id) FROM messages WHERE user_id = m.user_id
-            )
+            LEFT JOIN users u ON u.user_id = m.user_id
+            INNER JOIN (
+                SELECT user_id, MAX(id) AS max_id
+                FROM messages
+                GROUP BY user_id
+            ) t ON t.user_id = m.user_id AND t.max_id = m.id
             ORDER BY m.id DESC
             """
         )
