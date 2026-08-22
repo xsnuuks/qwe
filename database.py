@@ -614,3 +614,44 @@ async def assign_client_no(user_id: int) -> int:
         )
         await db.commit()
         return next_no
+
+
+async def add_favorite(user_id: int, product_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "INSERT OR IGNORE INTO favorites (user_id, product_id) VALUES (?, ?)",
+            (user_id, product_id),
+        )
+        await db.commit()
+
+
+async def remove_favorite(user_id: int, product_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "DELETE FROM favorites WHERE user_id = ? AND product_id = ?",
+            (user_id, product_id),
+        )
+        await db.commit()
+
+
+async def get_favorite_ids(user_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            "SELECT product_id FROM favorites WHERE user_id = ?",
+            (user_id,),
+        )
+        rows = await cur.fetchall()
+        return [r[0] for r in rows]
+
+
+async def get_favorite_products(user_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            "SELECT p.* FROM favorites f "
+            "JOIN products p ON p.id = f.product_id "
+            "WHERE f.user_id = ? ORDER BY p.name",
+            (user_id,),
+        )
+        rows = await cur.fetchall()
+        return [dict(r) for r in rows]
