@@ -432,6 +432,13 @@ async def set_order_status(order_id: int, status: str) -> dict | None:
         return order
 
 
+async def delete_order(order_id: int) -> bool:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("DELETE FROM orders WHERE id = ?", (order_id,))
+        await db.commit()
+        return cursor.rowcount > 0
+
+
 async def get_profile(user_id: int):
     user = await get_user(user_id)
     if not user:
