@@ -303,6 +303,21 @@ async def get_pending_orders():
         )
         rows = await cursor.fetchall()
         return [dict(row) for row in rows]
+        
+
+async def get_all_orders():
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """
+            SELECT o.*, u.username, u.full_name
+            FROM orders o
+            LEFT JOIN users u ON u.user_id = o.user_id
+            ORDER BY o.id DESC
+            """
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(r) for r in rows]
 
 
 async def get_stats() -> Dict[str, Any]:
