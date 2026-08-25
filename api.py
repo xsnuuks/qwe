@@ -34,7 +34,7 @@ from database import (
     get_profile, on_first_order_referral,add_favorite,
     remove_favorite,
     get_favorite_ids,
-    get_favorite_products,delete_order,
+    get_favorite_products,delete_order,get_all_orders,
 )
 
 app = FastAPI()
