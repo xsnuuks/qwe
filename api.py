@@ -277,6 +277,17 @@ async def admin_set_order_status(
 
     return {"ok": True, "status": status}
 
+@app.delete("/admin/orders/{order_id}")
+async def admin_delete_order(
+    order_id: int,
+    x_admin_id: Optional[str] = Header(None),
+):
+    require_admin(x_admin_id)
+    ok = await delete_order(order_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Not found")
+    return {"ok": True}
+
 
 @app.post("/admin/products")
 async def admin_product_create(data: ProductCreate, x_admin_id: Optional[str] = Header(None)):
