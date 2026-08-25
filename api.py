@@ -228,7 +228,7 @@ async def create_order_api(data: CreateOrderRequest):
 @app.get("/admin/orders")
 async def admin_orders(x_admin_id: Optional[str] = Header(None)):
     check_admin(x_admin_id)
-    return await get_pending_orders()
+    return await get_all_orders()
 
 class OrderStatusIn(BaseModel):
     status: str
