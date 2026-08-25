@@ -230,7 +230,6 @@ async def admin_orders(x_admin_id: Optional[str] = Header(None)):
     check_admin(x_admin_id)
     return await get_pending_orders()
 
-
 class OrderStatusIn(BaseModel):
     status: str
 
