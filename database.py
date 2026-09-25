@@ -331,6 +331,48 @@ async def get_stats() -> Dict[str, Any]:
         return {"users": users, "orders": orders, "products": products}
 
 
+async def get_stats_period(period: str = "all") -> dict:
+    """period: today | 7d | 30d | all"""
+    async with aiosqlite.connect(DB_PATH) as db:
+        # фильтр по дате
+        if period == "today":
+            date_filter = "AND date(created_at) = date('now', 'localtime')"
+        elif period == "7d":
+            date_filter = "AND date(created_at) >= date('now', 'localtime', '-7 day')"
+        elif period == "30d":
+            date_filter = "AND date(created_at) >= date('now', 'localtime', '-30 day')"
+        else:
+            date_filter = ""
+
+        # заказы (completed)
+        async with db.execute(
+            f"SELECT COUNT(*) FROM orders WHERE status = 'completed' {date_filter}"
+        ) as c:
+            orders = (await c.fetchone())[0]
+
+        # сумма € (если колонки total нет — будет 0)
+        try:
+            async with db.execute(
+                f"SELECT COALESCE(SUM(total), 0) FROM orders WHERE status = 'completed' {date_filter}"
+            ) as c:
+                revenue = (await c.fetchone())[0] or 0
+        except Exception:
+            revenue = 0
+
+        # пользователи и товары — всегда общие
+        async with db.execute("SELECT COUNT(*) FROM users") as c:
+            users = (await c.fetchone())[0]
+        async with db.execute("SELECT COUNT(*) FROM products WHERE is_available = 1") as c:
+            products = (await c.fetchone())[0]
+
+        return {
+            "users": users,
+            "orders": orders,
+            "products": products,
+            "revenue": float(revenue) if revenue else 0,
+            "period": period,
+        }
+
 
 
 async def get_all_user_ids() -> List[int]:
