@@ -402,9 +402,14 @@ async def admin_broadcast(data: BroadcastRequest, x_admin_id: Optional[str] = He
 
 
 @app.get("/admin/stats")
-async def admin_stats(x_admin_id: Optional[str] = Header(None)):
+async def admin_stats(
+    period: str = "all",
+    x_admin_id: Optional[str] = Header(None),
+):
     check_admin(x_admin_id)
-    return await get_stats()
+    if period not in ("today", "7d", "30d", "all"):
+        period = "all"
+    return await get_stats_period(period)
 
 
 @app.get("/profile/{user_id}")
