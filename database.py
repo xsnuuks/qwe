@@ -346,14 +346,14 @@ async def get_stats_period(period: str = "all") -> dict:
 
         # заказы (completed)
         async with db.execute(
-            f"SELECT COUNT(*) FROM orders WHERE status = 'completed' {date_filter}"
+            f"SELECT COUNT(*) FROM orders WHERE status = 'done' {date_filter}"
         ) as c:
             orders = (await c.fetchone())[0]
 
         # сумма € (если колонки total нет — будет 0)
         try:
             async with db.execute(
-                f"SELECT COALESCE(SUM(total), 0) FROM orders WHERE status = 'completed' {date_filter}"
+                f"SELECT COALESCE(SUM(total), 0) FROM orders WHERE status = 'done' {date_filter}"
             ) as c:
                 revenue = (await c.fetchone())[0] or 0
         except Exception:
