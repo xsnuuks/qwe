@@ -20,7 +20,7 @@ from database import (
     get_all_products,
     get_all_user_ids,
     get_pending_orders,
-    get_stats,
+    get_stats,get_stats_period,
     get_user,
     get_users_count,
     get_users_page,
