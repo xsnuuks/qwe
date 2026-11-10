@@ -166,7 +166,7 @@ async def create_order_api(data: CreateOrderRequest):
     user = await get_user(data.user_id)
     purchases_before = (user or {}).get("purchases_count") or 0
     has_disc = bool((user or {}).get("has_discount") or 0)
-    order_ids = []
+
     lines = []
     total = 0.0
     products = await get_all_products(only_available=False)
@@ -182,22 +182,19 @@ async def create_order_api(data: CreateOrderRequest):
 
     items_text = ", ".join(lines)
 
-    for item in data.items:
-        product = by_id.get(item.product_id)
-        if not product:
-            continue
-        for _ in range(item.quantity):
-            oid = await create_order(
-                data.user_id,
-                item.product_id,
-                used_discount=False,
-                city=data.city,
-                payment=data.payment,
-                place=data.place,
-                items_text=items_text,
-                total=total,
-            )
-            order_ids.append(oid)
+    # Один заказ на всю корзину
+    first_product_id = data.items[0].product_id if data.items else 0
+    oid = await create_order(
+        data.user_id,
+        first_product_id,
+        used_discount=has_disc,
+        city=data.city,
+        payment=data.payment,
+        place=data.place,
+        items_text=items_text,
+        total=total,
+    )
+    order_ids = [oid]
 
     if bot and ADMIN_ID:
         text = (
