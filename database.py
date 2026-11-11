@@ -83,44 +83,32 @@ await db.execute("""
     )
 """)
 
-await db.execute(
-            "CREATE TABLE IF NOT EXISTS favorites ("
-            "user_id INTEGER NOT NULL, "
-            "product_id INTEGER NOT NULL, "
-            "PRIMARY KEY (user_id, product_id))"
-        )
-        try:
-            await db.execute("ALTER TABLE products ADD COLUMN photo_file_id TEXT")
-        except Exception:
-            pass
-        try:
-            await db.execute("ALTER TABLE users ADD COLUMN is_blocked INTEGER DEFAULT 0")
-        except Exception:
-            pass
-        try:
-            await db.execute("ALTER TABLE orders ADD COLUMN city TEXT")
-        except Exception:
-            pass
-        try:
-            await db.execute("ALTER TABLE orders ADD COLUMN payment TEXT")
-        except Exception:
-            pass
-        try:
-            await db.execute("ALTER TABLE orders ADD COLUMN place TEXT")
-        except Exception:
-            pass
-        try:
-            await db.execute("ALTER TABLE orders ADD COLUMN items_text TEXT")
-        except Exception:
-            pass
-        try:
-            await db.execute("ALTER TABLE orders ADD COLUMN total REAL")
-        except Exception:
-            pass
-        try:
-            await db.execute("ALTER TABLE users ADD COLUMN client_no INTEGER")
-        except Exception:
-            pass
+    await db.execute(
+        "CREATE TABLE IF NOT EXISTS favorites ("
+        "user_id INTEGER NOT NULL, "
+        "product_id INTEGER NOT NULL, "
+        "PRIMARY KEY (user_id, product_id))"
+    )
+
+    try:
+        await db.execute("ALTER TABLE products ADD COLUMN photo_file_id TEXT")
+    except Exception:
+        pass
+
+    try:
+        await db.execute("ALTER TABLE users ADD COLUMN is_blocked INTEGER DEFAULT 0")
+    except Exception:
+        pass
+
+    try:
+        await db.execute("ALTER TABLE orders ADD COLUMN city TEXT")
+    except Exception:
+        pass
+
+    try:
+        await db.execute("ALTER TABLE orders ADD COLUMN payment TEXT")
+    except Exception:
+        pass
         await db.execute("""
             CREATE TABLE IF NOT EXISTS orders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
