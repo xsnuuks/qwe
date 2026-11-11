@@ -83,7 +83,7 @@ await db.execute("""
     )
 """)
 
-        await db.execute(
+await db.execute(
             "CREATE TABLE IF NOT EXISTS favorites ("
             "user_id INTEGER NOT NULL, "
             "product_id INTEGER NOT NULL, "
