@@ -72,8 +72,8 @@ async def cmd_start(message: Message, command: CommandObject, bot: Bot, lang: st
         ]
     )
     await message.answer(
-        "Добро пожаловать в MONO.\n\n"
-        "Минимализм. Качество. Только проверенные жидкости.\n\n"
+        "Добро пожаловать в PuffyStore!\n\n"
+        "Минимализм. Качество. Только проверенные товары.\n\n"
         "Откройте мини-приложение, чтобы посмотреть каталог и оформить заказ.",
         reply_markup=kb,
     )
