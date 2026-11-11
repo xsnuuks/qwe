@@ -83,7 +83,8 @@ await db.execute("""
     )
 """)
 
-    await db.execute(
+
+        await db.execute(
         "CREATE TABLE IF NOT EXISTS favorites ("
         "user_id INTEGER NOT NULL, "
         "product_id INTEGER NOT NULL, "
@@ -107,6 +108,26 @@ await db.execute("""
 
     try:
         await db.execute("ALTER TABLE orders ADD COLUMN payment TEXT")
+    except Exception:
+        pass
+
+    try:
+        await db.execute("ALTER TABLE orders ADD COLUMN place TEXT")
+    except Exception:
+        pass
+
+    try:
+        await db.execute("ALTER TABLE orders ADD COLUMN items_text TEXT")
+    except Exception:
+        pass
+
+    try:
+        await db.execute("ALTER TABLE orders ADD COLUMN total REAL")
+    except Exception:
+        pass
+
+    try:
+        await db.execute("ALTER TABLE users ADD COLUMN client_no INTEGER")
     except Exception:
         pass
         await db.execute("""
