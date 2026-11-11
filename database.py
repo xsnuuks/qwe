@@ -679,3 +679,18 @@ async def delete_order(order_id: int):
         await db.execute("DELETE FROM orders WHERE id = ?", (order_id,))
         await db.commit()
 
+async def get_categories():
+    return []
+
+async def create_category(name: str):
+    return None
+
+async def get_price_tiers(product_id: int = None):
+    return []
+
+async def set_price_tiers(product_id: int, tiers: list):
+    return True
+
+async def get_flavors(product_id: int = None):
+    return []
+
