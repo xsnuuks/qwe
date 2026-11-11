@@ -34,7 +34,9 @@ from database import (
     get_profile, on_first_order_referral,add_favorite,
     remove_favorite,
     get_favorite_ids,
-    get_favorite_products,delete_order,get_all_orders,
+    get_favorite_products,delete_order,get_all_orders, get_categories, create_category,
+    get_price_tiers, set_price_tiers,
+    get_flavors
 )
 
 app = FastAPI()
@@ -552,3 +554,28 @@ async def favorites_add(user_id: int, product_id: int):
 async def favorites_remove(user_id: int, product_id: int):
     await remove_favorite(user_id, product_id)
     return {"ok": True}
+
+@app.get("/categories")
+async def api_get_categories(is_wholesale: int = 0):
+    categories = await get_categories(is_wholesale)
+    return categories
+
+@app.post("/admin/categories")
+async def api_create_category(data: dict, admin: int = Depends(check_admin)):
+    category_id = await create_category(data["name"], data.get("is_wholesale", 0))
+    return {"id": category_id}
+
+@app.get("/products/{product_id}/tiers")
+async def api_get_tiers(product_id: int):
+    tiers = await get_price_tiers(product_id)
+    return tiers
+
+@app.post("/admin/products/{product_id}/tiers")
+async def api_set_tiers(product_id: int, data: dict, admin: int = Depends(check_admin)):
+    await set_price_tiers(product_id, data["tiers"])
+    return {"ok": True}
+
+@app.get("/products/{product_id}/flavors")
+async def api_get_flavors(product_id: int):
+    flavors = await get_flavors(product_id)
+    return flavors
