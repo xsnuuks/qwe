@@ -599,3 +599,83 @@ async def set_order_status(order_id: int, status: str):
         await db.commit()
         return dict(row) if row else None
 
+async def get_messages(user_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM messages WHERE user_id = ? ORDER BY id",
+            (user_id,)
+        ) as c:
+            rows = await c.fetchall()
+            return [dict(r) for r in rows]
+
+
+async def get_chat_list():
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT m.user_id, u.username, u.full_name, 
+                      MAX(m.id) as last_id, COUNT(*) as msg_count
+               FROM messages m
+               JOIN users u ON m.user_id = u.user_id
+               GROUP BY m.user_id
+               ORDER BY last_id DESC"""
+        ) as c:
+            rows = await c.fetchall()
+            return [dict(r) for r in rows]
+
+
+async def mark_messages_read(user_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE messages SET is_read = 1 WHERE user_id = ? AND from_admin = 0",
+            (user_id,)
+        )
+        await db.commit()
+
+
+async def get_profile(user_id: int):
+    return await get_user(user_id)
+
+
+async def on_first_order_referral(user_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT referrer_id FROM users WHERE user_id = ?", (user_id,)
+        ) as c:
+            row = await c.fetchone()
+            if row and row[0]:
+                await increment_referrals(row[0])
+
+
+async def use_discount_and_decrement(user_id: int):
+    await use_discount(user_id)
+
+
+async def increment_purchases(user_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE users SET purchases_count = purchases_count + 1 WHERE user_id = ?",
+            (user_id,)
+        )
+        await db.commit()
+
+
+async def get_favorite_ids(user_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT product_id FROM favorites WHERE user_id = ?", (user_id,)
+        ) as c:
+            rows = await c.fetchall()
+            return [r[0] for r in rows]
+
+
+async def get_favorite_products(user_id: int):
+    return await get_favorites(user_id)
+
+
+async def delete_order(order_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM orders WHERE id = ?", (order_id,))
+        await db.commit()
+
