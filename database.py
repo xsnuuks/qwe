@@ -561,3 +561,41 @@ async def remove_from_cart(user_id: int, product_id: int):
         )
         await db.commit()
         
+
+async def get_cart_count(user_id: int) -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT COALESCE(SUM(quantity), 0) FROM cart WHERE user_id = ?",
+            (user_id,)
+        ) as c:
+            return (await c.fetchone())[0]
+
+
+async def set_referrer_if_empty(user_id: int, referrer_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """UPDATE users SET referrer_id = ?
+               WHERE user_id = ? AND referrer_id IS NULL AND user_id != ?""",
+            (referrer_id, user_id, referrer_id)
+        )
+        await db.commit()
+
+
+async def set_user_blocked(user_id: int, blocked: bool):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE users SET is_blocked = ? WHERE user_id = ?",
+            (int(blocked), user_id)
+        )
+        await db.commit()
+
+
+async def set_order_status(order_id: int, status: str):
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        await db.execute("UPDATE orders SET status = ? WHERE id = ?", (status, order_id))
+        async with db.execute("SELECT * FROM orders WHERE id = ?", (order_id,)) as c:
+            row = await c.fetchone()
+        await db.commit()
+        return dict(row) if row else None
+
