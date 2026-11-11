@@ -82,6 +82,7 @@ await db.execute("""
         FOREIGN KEY (product_id) REFERENCES products(id)
     )
 """)
+
         await db.execute(
             "CREATE TABLE IF NOT EXISTS favorites ("
             "user_id INTEGER NOT NULL, "
