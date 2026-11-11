@@ -552,3 +552,12 @@ async def delete_product(product_id: int):
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("DELETE FROM products WHERE id = ?", (product_id,))
         await db.commit()
+
+async def remove_from_cart(user_id: int, product_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "DELETE FROM cart WHERE user_id = ? AND product_id = ?",
+            (user_id, product_id)
+        )
+        await db.commit()
+        
