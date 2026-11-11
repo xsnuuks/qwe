@@ -763,3 +763,53 @@ async def get_favorite_products(user_id: int):
         )
         rows = await cur.fetchall()
         return [dict(r) for r in rows]
+
+
+async def get_categories(is_wholesale: int = 0) -> list:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            "SELECT * FROM categories WHERE is_wholesale = ? ORDER BY sort_order, id",
+            (is_wholesale,)
+        )
+        rows = await cursor.fetchall()
+        return [dict(row) for row in rows]
+
+async def create_category(name: str, is_wholesale: int = 0) -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            "INSERT INTO categories (name, is_wholesale) VALUES (?, ?)",
+            (name, is_wholesale)
+        )
+        await db.commit()
+        return cursor.lastrowid
+
+async def get_price_tiers(product_id: int) -> list:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            "SELECT * FROM price_tiers WHERE product_id = ? ORDER BY min_qty",
+            (product_id,)
+        )
+        rows = await cursor.fetchall()
+        return [dict(row) for row in rows]
+
+async def set_price_tiers(product_id: int, tiers: list):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM price_tiers WHERE product_id = ?", (product_id,))
+        for tier in tiers:
+            await db.execute(
+                "INSERT INTO price_tiers (product_id, min_qty, price) VALUES (?, ?, ?)",
+                (product_id, tier["min_qty"], tier["price"])
+            )
+        await db.commit()
+
+async def get_flavors(product_id: int) -> list:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            "SELECT * FROM flavors WHERE product_id = ? ORDER BY name",
+            (product_id,)
+        )
+        rows = await cursor.fetchall()
+        return [dict(row) for row in rows]
