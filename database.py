@@ -38,6 +38,50 @@ async def init_db():
                 created_at TEXT
             )
         """)
+        await db.execute("""
+    CREATE TABLE IF NOT EXISTS categories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        is_wholesale INTEGER DEFAULT 0,
+        sort_order INTEGER DEFAULT 0
+    )
+""")
+
+# Добавляем поля к товарам
+try:
+    await db.execute("ALTER TABLE products ADD COLUMN category_id INTEGER")
+except Exception:
+    pass
+try:
+    await db.execute("ALTER TABLE products ADD COLUMN is_wholesale INTEGER DEFAULT 0")
+except Exception:
+    pass
+try:
+    await db.execute("ALTER TABLE products ADD COLUMN stock INTEGER DEFAULT 0")
+except Exception:
+    pass
+
+# Ценовые уровни
+await db.execute("""
+    CREATE TABLE IF NOT EXISTS price_tiers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        product_id INTEGER NOT NULL,
+        min_qty INTEGER NOT NULL,
+        price REAL NOT NULL,
+        FOREIGN KEY (product_id) REFERENCES products(id)
+    )
+""")
+
+# Вкусы
+await db.execute("""
+    CREATE TABLE IF NOT EXISTS flavors (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        product_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        stock INTEGER DEFAULT 0,
+        FOREIGN KEY (product_id) REFERENCES products(id)
+    )
+""")
         await db.execute(
             "CREATE TABLE IF NOT EXISTS favorites ("
             "user_id INTEGER NOT NULL, "
