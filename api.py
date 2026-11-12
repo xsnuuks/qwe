@@ -579,3 +579,88 @@ async def api_set_tiers(product_id: int, data: dict, admin: int = Depends(check_
 async def api_get_flavors(product_id: int):
     flavors = await get_flavors(product_id)
     return flavors
+
+
+# ==================== ОПТ API ====================
+
+@app.get("/api/wholesale/categories")
+async def api_get_wholesale_categories():
+    categories = await get_wholesale_categories()
+    return {"categories": categories}
+
+@app.post("/api/wholesale/categories")
+async def api_create_wholesale_category(name: str = Form(...)):
+    cat_id = await create_wholesale_category(name)
+    return {"id": cat_id, "name": name}
+
+@app.get("/api/wholesale/products")
+async def api_get_wholesale_products(category_id: int = None):
+    products = await get_wholesale_products(category_id)
+    return {"products": products}
+
+@app.post("/api/wholesale/products")
+async def api_create_wholesale_product(
+    category_id: int = Form(...),
+    name: str = Form(...),
+    photo_url: str = Form(None)
+):
+    prod_id = await create_wholesale_product(category_id, name, photo_url)
+    return {"id": prod_id}
+
+@app.patch("/api/wholesale/products/{product_id}")
+async def api_update_wholesale_product(
+    product_id: int,
+    name: str = Form(None),
+    photo_url: str = Form(None),
+    is_visible: int = Form(None)
+):
+    await update_wholesale_product(product_id, name, photo_url, is_visible)
+    return {"ok": True}
+
+@app.delete("/api/wholesale/products/{product_id}")
+async def api_delete_wholesale_product(product_id: int):
+    await delete_wholesale_product(product_id)
+    return {"ok": True}
+
+@app.get("/api/wholesale/products/{product_id}/tiers")
+async def api_get_price_tiers(product_id: int):
+    tiers = await get_price_tiers(product_id)
+    return {"tiers": tiers}
+
+@app.post("/api/wholesale/products/{product_id}/tiers")
+async def api_add_price_tier(
+    product_id: int,
+    min_qty: int = Form(...),
+    price: float = Form(...)
+):
+    await add_price_tier(product_id, min_qty, price)
+    return {"ok": True}
+
+@app.delete("/api/wholesale/tiers/{tier_id}")
+async def api_delete_price_tier(tier_id: int):
+    await delete_price_tier(tier_id)
+    return {"ok": True}
+
+@app.get("/api/wholesale/products/{product_id}/flavors")
+async def api_get_flavors(product_id: int):
+    flavors = await get_flavors(product_id)
+    return {"flavors": flavors}
+
+@app.post("/api/wholesale/products/{product_id}/flavors")
+async def api_add_flavor(
+    product_id: int,
+    name: str = Form(...),
+    stock: int = Form(0)
+):
+    await add_flavor(product_id, name, stock)
+    return {"ok": True}
+
+@app.patch("/api/wholesale/flavors/{flavor_id}")
+async def api_update_flavor_stock(flavor_id: int, stock: int = Form(...)):
+    await update_flavor_stock(flavor_id, stock)
+    return {"ok": True}
+
+@app.delete("/api/wholesale/flavors/{flavor_id}")
+async def api_delete_flavor(flavor_id: int):
+    await delete_flavor(flavor_id)
+    return {"ok": True}
