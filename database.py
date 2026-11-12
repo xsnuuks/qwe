@@ -115,6 +115,46 @@ async def init_db():
                 created_at TEXT
             )
         """)
+                # === ОПТ ===
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS wholesale_categories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                created_at TEXT
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS wholesale_products (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                category_id INTEGER,
+                name TEXT NOT NULL,
+                photo_url TEXT,
+                is_visible INTEGER DEFAULT 0,
+                created_at TEXT,
+                FOREIGN KEY (category_id) REFERENCES wholesale_categories(id)
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS wholesale_price_tiers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                product_id INTEGER,
+                min_qty INTEGER NOT NULL,
+                price REAL NOT NULL,
+                FOREIGN KEY (product_id) REFERENCES wholesale_products(id)
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS wholesale_flavors (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                product_id INTEGER,
+                name TEXT NOT NULL,
+                stock INTEGER DEFAULT 0,
+                FOREIGN KEY (product_id) REFERENCES wholesale_products(id)
+            )
+        """)
         await db.commit()
 
 
