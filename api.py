@@ -610,15 +610,6 @@ async def api_get_wholesale_products(category_id: int = None):
     products = await get_wholesale_products(category_id)
     return {"products": products}
 
-@app.post("/api/wholesale/products")
-async def api_create_wholesale_product(
-    category_id: int = Form(...),
-    name: str = Form(...),
-    photo_url: str = Form(None)
-):
-    prod_id = await create_wholesale_product(category_id, name, photo_url)
-    return {"id": prod_id}
-
 @app.patch("/api/wholesale/products/{product_id}")
 async def api_update_wholesale_product(
     product_id: int,
