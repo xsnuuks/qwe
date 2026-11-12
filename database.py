@@ -773,7 +773,7 @@ async def create_wholesale_product(category_id: int, name: str, photo_url: str =
         await db.execute(
             """INSERT INTO wholesale_products 
                (category_id, name, photo_url, is_visible, created_at) 
-               VALUES (?, ?, ?, 0, ?)""",
+               VALUES (?, ?, ?, 1, ?)""",
             (category_id, name, photo_url, datetime.now().isoformat())
         )
         await db.commit()
