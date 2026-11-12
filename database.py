@@ -768,7 +768,7 @@ async def get_wholesale_products(category_id: int = None):
             rows = await cursor.fetchall()
             return [dict(row) for row in rows]
 
-async def create_wholesale_product(category_id: int, name: str, photo_url: str = None):
+async def create_wholesale_product(category_id: int, name: str, photo_url: str = None, tiers: list = None, flavors: list = None):
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
             """INSERT INTO wholesale_products 
@@ -779,7 +779,22 @@ async def create_wholesale_product(category_id: int, name: str, photo_url: str =
         await db.commit()
         async with db.execute("SELECT last_insert_rowid()") as cursor:
             row = await cursor.fetchone()
-            return row[0]
+            product_id = row[0]
+
+        if tiers:
+            for t in tiers:
+                await db.execute(
+                    "INSERT INTO wholesale_price_tiers (product_id, min_qty, price) VALUES (?, ?, ?)",
+                    (product_id, t["min_qty"], t["price"])
+                )
+        if flavors:
+            for f in flavors:
+                await db.execute(
+                    "INSERT INTO wholesale_flavors (product_id, name, stock) VALUES (?, ?, ?)",
+                    (product_id, f["name"], f.get("stock", 0))
+                )
+        await db.commit()
+        return product_id
 
 async def update_wholesale_product(product_id: int, name: str = None, photo_url: str = None, is_visible: int = None):
     async with aiosqlite.connect(DB_PATH) as db:
