@@ -691,7 +691,7 @@ async def api_create_wholesale_product(data: dict, admin: int = Depends(check_ad
     from database import create_wholesale_product
     product_id = await create_wholesale_product(
         category_id=data.get("category_id"),
-        name=data["name"],
+        name=data.get("name"),
         photo_url=data.get("photo_url"),
         tiers=data.get("tiers"),
         flavors=data.get("flavors"),
