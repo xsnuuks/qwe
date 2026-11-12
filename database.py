@@ -734,3 +734,125 @@ async def set_price_tiers(product_id: int, tiers: list):
 async def get_flavors(product_id: int = None):
     return []
 
+
+# ==================== ОПТ ====================
+
+async def get_wholesale_categories():
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT * FROM wholesale_categories ORDER BY name") as cursor:
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+async def create_wholesale_category(name: str):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "INSERT INTO wholesale_categories (name, created_at) VALUES (?, ?)",
+            (name, datetime.now().isoformat())
+        )
+        await db.commit()
+        async with db.execute("SELECT last_insert_rowid()") as cursor:
+            row = await cursor.fetchone()
+            return row[0]
+
+async def get_wholesale_products(category_id: int = None):
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        if category_id:
+            query = "SELECT * FROM wholesale_products WHERE category_id = ? ORDER BY name"
+            params = (category_id,)
+        else:
+            query = "SELECT * FROM wholesale_products ORDER BY name"
+            params = ()
+        async with db.execute(query, params) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+async def create_wholesale_product(category_id: int, name: str, photo_url: str = None):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """INSERT INTO wholesale_products 
+               (category_id, name, photo_url, is_visible, created_at) 
+               VALUES (?, ?, ?, 0, ?)""",
+            (category_id, name, photo_url, datetime.now().isoformat())
+        )
+        await db.commit()
+        async with db.execute("SELECT last_insert_rowid()") as cursor:
+            row = await cursor.fetchone()
+            return row[0]
+
+async def update_wholesale_product(product_id: int, name: str = None, photo_url: str = None, is_visible: int = None):
+    async with aiosqlite.connect(DB_PATH) as db:
+        updates = []
+        params = []
+        if name is not None:
+            updates.append("name = ?")
+            params.append(name)
+        if photo_url is not None:
+            updates.append("photo_url = ?")
+            params.append(photo_url)
+        if is_visible is not None:
+            updates.append("is_visible = ?")
+            params.append(is_visible)
+        if updates:
+            params.append(product_id)
+            await db.execute(f"UPDATE wholesale_products SET {', '.join(updates)} WHERE id = ?", params)
+            await db.commit()
+
+async def delete_wholesale_product(product_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM wholesale_flavors WHERE product_id = ?", (product_id,))
+        await db.execute("DELETE FROM wholesale_price_tiers WHERE product_id = ?", (product_id,))
+        await db.execute("DELETE FROM wholesale_products WHERE id = ?", (product_id,))
+        await db.commit()
+
+async def get_price_tiers(product_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM wholesale_price_tiers WHERE product_id = ? ORDER BY min_qty",
+            (product_id,)
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+async def add_price_tier(product_id: int, min_qty: int, price: float):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "INSERT INTO wholesale_price_tiers (product_id, min_qty, price) VALUES (?, ?, ?)",
+            (product_id, min_qty, price)
+        )
+        await db.commit()
+
+async def delete_price_tier(tier_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM wholesale_price_tiers WHERE id = ?", (tier_id,))
+        await db.commit()
+
+async def get_flavors(product_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM wholesale_flavors WHERE product_id = ? ORDER BY name",
+            (product_id,)
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+async def add_flavor(product_id: int, name: str, stock: int = 0):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "INSERT INTO wholesale_flavors (product_id, name, stock) VALUES (?, ?, ?)",
+            (product_id, name, stock)
+        )
+        await db.commit()
+
+async def update_flavor_stock(flavor_id: int, stock: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("UPDATE wholesale_flavors SET stock = ? WHERE id = ?", (stock, flavor_id))
+        await db.commit()
+
+async def delete_flavor(flavor_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM wholesale_flavors WHERE id = ?", (flavor_id,))
+        await db.commit()
