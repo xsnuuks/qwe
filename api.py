@@ -36,7 +36,19 @@ from database import (
     get_favorite_ids,
     get_favorite_products,delete_order,get_all_orders, get_categories, create_category,
     get_price_tiers, set_price_tiers,
-    get_flavors
+    get_flavors, get_wholesale_categories,
+    create_wholesale_category,
+    get_wholesale_products,
+    create_wholesale_product,
+    update_wholesale_product,
+    delete_wholesale_product,
+    get_price_tiers as get_wholesale_price_tiers,
+    add_price_tier,
+    delete_price_tier,
+    get_flavors as get_wholesale_flavors,
+    add_flavor,
+    update_flavor_stock,
+    delete_flavor,
 )
 
 app = FastAPI()
