@@ -676,3 +676,57 @@ async def api_update_flavor_stock(flavor_id: int, stock: int = Form(...)):
 async def api_delete_flavor(flavor_id: int):
     await delete_flavor(flavor_id)
     return {"ok": True}
+
+
+# ==================== ОПТ API ====================
+
+@app.get("/api/wholesale/products")
+async def api_get_wholesale_products(category_id: int = None):
+    from database import get_wholesale_products
+    products = await get_wholesale_products(category_id)
+    return products
+
+@app.post("/api/wholesale/products")
+async def api_create_wholesale_product(data: dict, admin: int = Depends(check_admin)):
+    from database import create_wholesale_product
+    product_id = await create_wholesale_product(
+        category_id=data.get("category_id"),
+        name=data["name"],
+        photo_url=data.get("photo_url")
+    )
+    return {"id": product_id}
+
+@app.post("/api/wholesale/products/{product_id}")
+async def api_update_wholesale_product(product_id: int, data: dict, admin: int = Depends(check_admin)):
+    from database import update_wholesale_product
+    await update_wholesale_product(
+        product_id,
+        name=data.get("name"),
+        photo_url=data.get("photo_url"),
+        is_visible=data.get("is_visible")
+    )
+    return {"ok": True}
+
+@app.delete("/api/wholesale/products/{product_id}")
+async def api_delete_wholesale_product(product_id: int, admin: int = Depends(check_admin)):
+    from database import delete_wholesale_product
+    await delete_wholesale_product(product_id)
+    return {"ok": True}
+
+@app.get("/api/wholesale/products/{product_id}/tiers")
+async def api_get_wholesale_tiers(product_id: int):
+    from database import get_price_tiers
+    tiers = await get_price_tiers(product_id)
+    return tiers
+
+@app.post("/api/wholesale/products/{product_id}/tiers")
+async def api_set_wholesale_tiers(product_id: int, data: dict, admin: int = Depends(check_admin)):
+    from database import set_price_tiers
+    await set_price_tiers(product_id, data["tiers"])
+    return {"ok": True}
+
+@app.get("/api/wholesale/products/{product_id}/flavors")
+async def api_get_wholesale_flavors(product_id: int):
+    from database import get_flavors
+    flavors = await get_flavors(product_id)
+    return flavors
