@@ -124,6 +124,31 @@ async def init_db():
             )
         """)
 
+        
+        for category_name in [
+            "Жижи",
+            "Одноразки",
+            "Поды",
+            "Картриджи",
+            "Снюс"
+        ]:
+            await db.execute(
+                """
+                INSERT INTO wholesale_categories (name, created_at)
+                SELECT ?, ?
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM wholesale_categories
+                    WHERE name = ?
+                )
+                """,
+                (
+                    category_name,
+                    datetime.now().isoformat(),
+                    category_name
+                )
+            )
+
+        
         await db.execute("""
             CREATE TABLE IF NOT EXISTS wholesale_products (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
