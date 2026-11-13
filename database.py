@@ -783,12 +783,35 @@ async def create_wholesale_category(name: str):
 async def get_wholesale_products(category_id: int = None):
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-        if category_id:
-            query = "SELECT * FROM wholesale_products WHERE category_id = ? ORDER BY name"
+
+        query = """
+            SELECT
+                p.*,
+                (
+                    SELECT COUNT(*)
+                    FROM wholesale_flavors f
+                    WHERE f.product_id = p.id
+                ) AS flavors_count,
+                (
+                    SELECT COALESCE(SUM(f.stock), 0)
+                    FROM wholesale_flavors f
+                    WHERE f.product_id = p.id
+                ) AS stock,
+                (
+                    SELECT COUNT(*)
+                    FROM wholesale_price_tiers t
+                    WHERE t.product_id = p.id
+                ) AS prices
+            FROM wholesale_products p
+        """
+
+        params = ()
+        if category_id is not None:
+            query += " WHERE p.category_id = ?"
             params = (category_id,)
-        else:
-            query = "SELECT * FROM wholesale_products ORDER BY name"
-            params = ()
+
+        query += " ORDER BY p.name"
+
         async with db.execute(query, params) as cursor:
             rows = await cursor.fetchall()
             return [dict(row) for row in rows]
