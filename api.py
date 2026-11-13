@@ -600,8 +600,13 @@ async def api_get_wholesale_categories():
     categories = await get_wholesale_categories()
     return {"categories": categories}
 
+
 @app.post("/api/wholesale/categories")
-async def api_create_wholesale_category(name: str = Form(...)):
+async def api_create_wholesale_category(
+    name: str = Form(...),
+    x_admin_id: Optional[str] = Header(None)
+):
+    check_admin(x_admin_id)
     cat_id = await create_wholesale_category(name)
     return {"id": cat_id, "name": name}
 
