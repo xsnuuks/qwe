@@ -887,6 +887,18 @@ async def add_price_tier(product_id: int, min_qty: int, price: float):
         )
         await db.commit()
 
+async def update_price_tier(tier_id: int, min_qty: int, price: float):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """
+            UPDATE wholesale_price_tiers
+            SET min_qty = ?, price = ?
+            WHERE id = ?
+            """,
+            (min_qty, price, tier_id)
+        )
+        await db.commit()
+        
 async def delete_price_tier(tier_id: int):
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("DELETE FROM wholesale_price_tiers WHERE id = ?", (tier_id,))
