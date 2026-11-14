@@ -1036,8 +1036,17 @@ def verify_telegram_init_data(init_data: str) -> int:
         raise HTTPException(401, "Недействительная авторизация Telegram")
     
 @app.post("/api/retail/orders")
-async def api_create_retail_order(data: RetailOrderCreateIn):
+async def api_create_retail_order(
+    data: RetailOrderCreateIn,
+    x_telegram_init_data: Optional[str] = Header(None),
+):
     from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
+    verified_user_id = verify_telegram_init_data(
+        x_telegram_init_data or ""
+    )
+
+    if data.user_id is not None and data.user_id != verified_user_id:
+        raise HTTPException(403, "Неверный Telegram ID")
 
     if data.delivery_type not in ("pickup", "delivery"):
         raise HTTPException(400, "Неверный способ получения")
