@@ -161,6 +161,18 @@ async def init_db():
             )
         """)
 
+        # Порядок отображения оптовых товаров
+        async with db.execute(
+            "PRAGMA table_info(wholesale_products)"
+        ) as cursor:
+            columns = [row[1] for row in await cursor.fetchall()]
+
+        if "sort_order" not in columns:
+            await db.execute(
+                "ALTER TABLE wholesale_products "
+                "ADD COLUMN sort_order INTEGER DEFAULT 0"
+            )
+            
         await db.execute("""
             CREATE TABLE IF NOT EXISTS wholesale_price_tiers (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
