@@ -1045,6 +1045,25 @@ async def api_create_retail_order(data: RetailOrderCreateIn):
         try:
             # Блокируем запись других заказов на время проверки
             await db.execute("BEGIN IMMEDIATE")
+            cursor = await db.execute(
+                """
+                SELECT order_id
+                FROM retail_order_requests
+                WHERE request_id = ?
+                """,
+                (data.request_id,)
+            )
+
+            existing_order = await cursor.fetchone()
+            await cursor.close()
+
+            if existing_order:
+                await db.rollback()
+                return {
+                    "ok": True,
+                    "order_id": existing_order["order_id"],
+                    "status": "existing",
+                }
 
             prepared_items = []
             total = Decimal("0.00")
