@@ -972,6 +972,7 @@ class RetailOrderItemIn(BaseModel):
 
 class RetailOrderCreateIn(BaseModel):
     user_id: Optional[int] = None
+    request_id: str
 
     delivery_type: str
     first_name: str
