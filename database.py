@@ -910,9 +910,23 @@ async def add_flavor(product_id: int, name: str, stock: int = 0):
         )
         await db.commit()
 
-async def update_flavor_stock(flavor_id: int, stock: int):
+async def update_flavor_stock(
+    flavor_id: int,
+    stock: int,
+    name: str = None
+):
     async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("UPDATE wholesale_flavors SET stock = ? WHERE id = ?", (stock, flavor_id))
+        if name is not None:
+            await db.execute(
+                "UPDATE wholesale_flavors SET name = ?, stock = ? WHERE id = ?",
+                (name.strip(), stock, flavor_id)
+            )
+        else:
+            await db.execute(
+                "UPDATE wholesale_flavors SET stock = ? WHERE id = ?",
+                (stock, flavor_id)
+            )
+
         await db.commit()
 
 async def delete_flavor(flavor_id: int):
