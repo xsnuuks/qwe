@@ -39,6 +39,7 @@ from database import (
     get_flavors, get_wholesale_categories,
     create_wholesale_category,
     get_wholesale_products,
+    reorder_wholesale_products,
     create_wholesale_product,
     update_wholesale_product,
     delete_wholesale_product,
