@@ -1089,3 +1089,108 @@ async def get_retail_products(category_id: int = None):
         async with db.execute(query, params) as cursor:
             rows = await cursor.fetchall()
             return [dict(row) for row in rows]
+
+async def create_retail_product(
+    category_id: int,
+    name: str,
+    description: str,
+    tiers: list,
+    flavors: list
+) -> int:
+    name = name.strip()
+
+    if not name:
+        raise ValueError("Укажите название товара")
+
+    if not tiers:
+        raise ValueError("Добавьте хотя бы один ценовой порог")
+
+    if not flavors:
+        raise ValueError("Добавьте хотя бы один вкус")
+
+    quantities = []
+
+    for tier in tiers:
+        qty = int(tier["min_qty"])
+        price = float(tier["price"])
+
+        if qty < 1 or price <= 0:
+            raise ValueError("Некорректные ценовые пороги")
+
+        quantities.append(qty)
+
+    if 1 not in quantities:
+        raise ValueError("Нужна цена от 1 штуки")
+
+    if len(set(quantities)) != len(quantities):
+        raise ValueError("Ценовые пороги повторяются")
+
+    for flavor in flavors:
+        if not str(flavor["name"]).strip():
+            raise ValueError("Название вкуса не может быть пустым")
+
+        if int(flavor["stock"]) < 0:
+            raise ValueError("Остаток не может быть отрицательным")
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        try:
+            await db.execute("BEGIN")
+
+            async with db.execute(
+                "SELECT id FROM retail_categories WHERE id = ?",
+                (category_id,)
+            ) as cursor:
+                if not await cursor.fetchone():
+                    raise ValueError("Категория не найдена")
+
+            cursor = await db.execute(
+                """
+                INSERT INTO retail_products
+                (category_id, name, description, is_visible, created_at)
+                VALUES (?, ?, ?, 1, ?)
+                """,
+                (
+                    category_id,
+                    name,
+                    description.strip(),
+                    datetime.now().isoformat()
+                )
+            )
+
+            product_id = cursor.lastrowid
+
+            for tier in tiers:
+                await db.execute(
+                    """
+                    INSERT INTO retail_price_tiers
+                    (product_id, min_qty, price)
+                    VALUES (?, ?, ?)
+                    """,
+                    (
+                        product_id,
+                        int(tier["min_qty"]),
+                        float(tier["price"])
+                    )
+                )
+
+            for flavor in flavors:
+                await db.execute(
+                    """
+                    INSERT INTO retail_flavors
+                    (product_id, name, stock)
+                    VALUES (?, ?, ?)
+                    """,
+                    (
+                        product_id,
+                        str(flavor["name"]).strip(),
+                        int(flavor["stock"])
+                    )
+                )
+
+            await db.commit()
+            return product_id
+
+        except Exception:
+            await db.rollback()
+            raise
+
