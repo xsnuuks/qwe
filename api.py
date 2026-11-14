@@ -961,3 +961,30 @@ async def api_get_retail_flavors(product_id: int):
 async def api_get_retail_tiers(product_id: int):
     tiers = await get_retail_price_tiers(product_id)
     return {"tiers": tiers}
+
+# === РОЗНИЧНЫЕ ЗАКАЗЫ ===
+
+class RetailOrderItemIn(BaseModel):
+    product_id: int
+    flavor_id: int
+    quantity: int
+
+
+class RetailOrderCreateIn(BaseModel):
+    user_id: Optional[int] = None
+
+    delivery_type: str
+    first_name: str
+    last_name: str
+    phone: str
+    email: Optional[str] = None
+
+    city: Optional[str] = None
+    postal_code: Optional[str] = None
+    street: Optional[str] = None
+    house: Optional[str] = None
+    apartment: Optional[str] = None
+
+    payment_method: str
+    items: List[RetailOrderItemIn]
+    
