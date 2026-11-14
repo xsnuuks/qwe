@@ -40,6 +40,8 @@ from database import (
     create_wholesale_category,
     get_wholesale_products, get_retail_products,
     create_retail_product,
+    get_retail_flavors,
+    get_retail_price_tiers,
     reorder_wholesale_products,
     create_wholesale_product,
     update_wholesale_product,
