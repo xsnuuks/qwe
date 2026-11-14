@@ -43,7 +43,7 @@ from database import (
     update_wholesale_product,
     delete_wholesale_product,
     get_price_tiers as get_wholesale_price_tiers,
-    add_price_tier,
+    add_price_tier, update_price_tier,
     delete_price_tier,
     get_flavors as get_wholesale_flavors,
     add_flavor,
