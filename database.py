@@ -822,7 +822,7 @@ async def get_wholesale_products(category_id: int = None):
             query += " WHERE p.category_id = ?"
             params = (category_id,)
 
-        query += " ORDER BY p.name"
+        query += " ORDER BY p.sort_order ASC, p.name ASC"
 
         async with db.execute(query, params) as cursor:
             rows = await cursor.fetchall()
