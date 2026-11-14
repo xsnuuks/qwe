@@ -988,6 +988,52 @@ class RetailOrderCreateIn(BaseModel):
 
     payment_method: str
     items: List[RetailOrderItemIn]
+
+def verify_telegram_init_data(init_data: str) -> int:
+    import hashlib
+    import hmac
+    import json
+    import time
+    from urllib.parse import parse_qsl
+
+    if not BOT_TOKEN or not init_data:
+        raise HTTPException(401, "Требуется авторизация Telegram")
+
+    try:
+        values = dict(parse_qsl(init_data, keep_blank_values=True))
+        received_hash = values.pop("hash", "")
+
+        data_check_string = "\n".join(
+            f"{key}={value}"
+            for key, value in sorted(values.items())
+        )
+
+        secret_key = hmac.new(
+            b"WebAppData",
+            BOT_TOKEN.encode(),
+            hashlib.sha256
+        ).digest()
+
+        expected_hash = hmac.new(
+            secret_key,
+            data_check_string.encode(),
+            hashlib.sha256
+        ).hexdigest()
+
+        if not hmac.compare_digest(expected_hash, received_hash):
+            raise ValueError("Invalid signature")
+
+        auth_date = int(values["auth_date"])
+        age = time.time() - auth_date
+
+        if age < -60 or age > 86400:
+            raise ValueError("Expired authorization")
+
+        user = json.loads(values["user"])
+        return int(user["id"])
+
+    except (ValueError, KeyError, TypeError, json.JSONDecodeError):
+        raise HTTPException(401, "Недействительная авторизация Telegram")
     
 @app.post("/api/retail/orders")
 async def api_create_retail_order(data: RetailOrderCreateIn):
