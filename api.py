@@ -1202,6 +1202,20 @@ async def api_create_retail_order(data: RetailOrderCreateIn):
                     (item["quantity"], item["flavor_id"])
                 )
 
+            await db.execute(
+                """
+                INSERT INTO retail_order_requests (
+                    request_id, order_id, created_at
+                )
+                VALUES (?, ?, ?)
+                """,
+                (
+                    data.request_id,
+                    order_id,
+                    datetime.now().isoformat(),
+                )
+            )
+
             await db.commit()
 
         except ValueError as exc:
