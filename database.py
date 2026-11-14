@@ -1054,3 +1054,38 @@ async def delete_flavor(flavor_id: int):
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("DELETE FROM wholesale_flavors WHERE id = ?", (flavor_id,))
         await db.commit()
+
+# ==================== НОВАЯ РОЗНИЦА ====================
+
+async def get_retail_products(category_id: int = None):
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+
+        query = """
+            SELECT p.*,
+                (SELECT COUNT(*)
+                 FROM retail_flavors f
+                 WHERE f.product_id = p.id) AS flavors_count,
+
+                (SELECT COALESCE(SUM(f.stock), 0)
+                 FROM retail_flavors f
+                 WHERE f.product_id = p.id) AS stock,
+
+                (SELECT COUNT(*)
+                 FROM retail_price_tiers t
+                 WHERE t.product_id = p.id) AS prices
+
+            FROM retail_products p
+        """
+
+        params = []
+
+        if category_id is not None:
+            query += " WHERE p.category_id = ?"
+            params.append(category_id)
+
+        query += " ORDER BY p.sort_order ASC, p.id ASC"
+
+        async with db.execute(query, params) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
