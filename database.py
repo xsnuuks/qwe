@@ -293,6 +293,15 @@ async def init_db():
             )
         """)
 
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS retail_order_requests (
+                request_id TEXT PRIMARY KEY,
+                order_id INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (order_id) REFERENCES retail_orders(id)
+            )
+        """)
+
         await db.commit()
         
 async def get_user(user_id: int) -> Optional[Dict[str, Any]]:
