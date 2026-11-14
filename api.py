@@ -988,3 +988,214 @@ class RetailOrderCreateIn(BaseModel):
     payment_method: str
     items: List[RetailOrderItemIn]
     
+@app.post("/api/retail/orders")
+async def api_create_retail_order(data: RetailOrderCreateIn):
+    from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
+
+    if data.delivery_type not in ("pickup", "delivery"):
+        raise HTTPException(400, "Неверный способ получения")
+
+    if data.payment_method not in (
+        ("usdt", "uah", "cash")
+        if data.delivery_type == "pickup"
+        else ("usdt", "uah")
+    ):
+        raise HTTPException(400, "Неверный способ оплаты")
+
+    if not data.first_name.strip() or not data.last_name.strip():
+        raise HTTPException(400, "Укажите имя и фамилию")
+
+    if not data.phone.strip():
+        raise HTTPException(400, "Укажите телефон")
+
+    if data.delivery_type == "delivery":
+        if not all([
+            data.email and data.email.strip(),
+            data.city and data.city.strip(),
+            data.postal_code and data.postal_code.strip(),
+            data.street and data.street.strip(),
+            data.house and data.house.strip(),
+        ]):
+            raise HTTPException(400, "Заполните адрес и контакты")
+
+    if not data.items or len(data.items) > 100:
+        raise HTTPException(400, "Некорректная корзина")
+
+    quantities = {}
+    product_totals = {}
+
+    for item in data.items:
+        if item.product_id <= 0 or item.flavor_id <= 0:
+            raise HTTPException(400, "Некорректный товар")
+
+        if item.quantity < 1 or item.quantity > 1000:
+            raise HTTPException(400, "Некорректное количество")
+
+        key = (item.product_id, item.flavor_id)
+
+        quantities[key] = quantities.get(key, 0) + item.quantity
+        product_totals[item.product_id] = (
+            product_totals.get(item.product_id, 0) + item.quantity
+        )
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+
+        try:
+            # Блокируем запись других заказов на время проверки
+            await db.execute("BEGIN IMMEDIATE")
+
+            prepared_items = []
+            total = Decimal("0.00")
+
+            for (product_id, flavor_id), quantity in quantities.items():
+                cursor = await db.execute(
+                    """
+                    SELECT
+                        p.name AS product_name,
+                        p.is_visible,
+                        f.name AS flavor_name,
+                        f.stock
+                    FROM retail_products p
+                    JOIN retail_flavors f ON f.product_id = p.id
+                    WHERE p.id = ? AND f.id = ?
+                    """,
+                    (product_id, flavor_id)
+                )
+                product = await cursor.fetchone()
+                await cursor.close()
+
+                if not product or not product["is_visible"]:
+                    raise ValueError("Один из товаров недоступен")
+
+                if quantity > product["stock"]:
+                    raise ValueError(
+                        f"Недостаточный остаток: {product['flavor_name']}"
+                    )
+
+                cursor = await db.execute(
+                    """
+                    SELECT price
+                    FROM retail_price_tiers
+                    WHERE product_id = ?
+                      AND min_qty <= ?
+                    ORDER BY min_qty DESC
+                    LIMIT 1
+                    """,
+                    (product_id, product_totals[product_id])
+                )
+                tier = await cursor.fetchone()
+                await cursor.close()
+
+                if not tier:
+                    raise ValueError("У товара отсутствует цена")
+
+                try:
+                    price = Decimal(str(tier["price"]))
+                    price = price.quantize(
+                        Decimal("0.01"),
+                        rounding=ROUND_HALF_UP
+                    )
+                except (InvalidOperation, ValueError):
+                    raise ValueError("Некорректная цена")
+
+                if not price.is_finite() or price <= 0:
+                    raise ValueError("Некорректная цена")
+
+                line_total = price * quantity
+                total += line_total
+
+                prepared_items.append({
+                    "product_id": product_id,
+                    "flavor_id": flavor_id,
+                    "product_name": product["product_name"],
+                    "flavor_name": product["flavor_name"],
+                    "quantity": quantity,
+                    "unit_price": float(price),
+                    "line_total": float(line_total),
+                })
+
+            cursor = await db.execute(
+                """
+                INSERT INTO retail_orders (
+                    user_id, delivery_type,
+                    first_name, last_name, phone, email,
+                    country, city, postal_code, street,
+                    house, apartment,
+                    payment_method, items_total,
+                    delivery_price, status, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    data.user_id,
+                    data.delivery_type,
+                    data.first_name.strip(),
+                    data.last_name.strip(),
+                    data.phone.strip(),
+                    data.email,
+                    "Germany",
+                    data.city,
+                    data.postal_code,
+                    data.street,
+                    data.house,
+                    data.apartment,
+                    data.payment_method,
+                    float(total),
+                    None,
+                    "new",
+                    datetime.now().isoformat(),
+                )
+            )
+
+            order_id = cursor.lastrowid
+            await cursor.close()
+
+            for item in prepared_items:
+                await db.execute(
+                    """
+                    INSERT INTO retail_order_items (
+                        order_id, product_id, flavor_id,
+                        product_name, flavor_name,
+                        quantity, unit_price, line_total
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        order_id,
+                        item["product_id"],
+                        item["flavor_id"],
+                        item["product_name"],
+                        item["flavor_name"],
+                        item["quantity"],
+                        item["unit_price"],
+                        item["line_total"],
+                    )
+                )
+
+                await db.execute(
+                    """
+                    UPDATE retail_flavors
+                    SET stock = stock - ?
+                    WHERE id = ?
+                    """,
+                    (item["quantity"], item["flavor_id"])
+                )
+
+            await db.commit()
+
+        except ValueError as exc:
+            await db.rollback()
+            raise HTTPException(400, str(exc))
+
+        except Exception:
+            await db.rollback()
+            raise
+
+    return {
+        "ok": True,
+        "order_id": order_id,
+        "items_total": float(total),
+        "delivery_price": None,
+        "status": "new",
+    }
