@@ -254,6 +254,45 @@ async def init_db():
             )
         """)
 
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS retail_orders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                delivery_type TEXT NOT NULL,
+                first_name TEXT NOT NULL,
+                last_name TEXT NOT NULL,
+                phone TEXT NOT NULL,
+                email TEXT,
+                country TEXT,
+                city TEXT,
+                postal_code TEXT,
+                street TEXT,
+                house TEXT,
+                apartment TEXT,
+                payment_method TEXT NOT NULL,
+                items_total REAL NOT NULL,
+                delivery_price REAL,
+                status TEXT DEFAULT 'new',
+                created_at TEXT NOT NULL
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS retail_order_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                order_id INTEGER NOT NULL,
+                product_id INTEGER NOT NULL,
+                flavor_id INTEGER NOT NULL,
+                product_name TEXT NOT NULL,
+                flavor_name TEXT NOT NULL,
+                quantity INTEGER NOT NULL,
+                unit_price REAL NOT NULL,
+                line_total REAL NOT NULL,
+                FOREIGN KEY (order_id)
+                    REFERENCES retail_orders(id)
+            )
+        """)
+
         await db.commit()
         
 async def get_user(user_id: int) -> Optional[Dict[str, Any]]:
