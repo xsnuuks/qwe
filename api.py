@@ -38,7 +38,7 @@ from database import (
     get_price_tiers, set_price_tiers,
     get_flavors, get_wholesale_categories,
     create_wholesale_category,
-    get_wholesale_products,
+    get_wholesale_products, get_retail_products,
     reorder_wholesale_products,
     create_wholesale_product,
     update_wholesale_product,
@@ -884,3 +884,14 @@ async def api_get_wholesale_flavors(product_id: int):
     from database import get_flavors
     flavors = await get_flavors(product_id)
     return flavors
+
+
+# ==================== НОВАЯ РОЗНИЦА ====================
+
+@app.get("/api/retail/products")
+async def api_get_retail_products(
+    category_id: Optional[int] = None
+):
+    products = await get_retail_products(category_id)
+    return {"products": products}
+    
