@@ -731,6 +731,33 @@ async def api_add_price_tier(
     await add_price_tier(product_id, min_qty, price)
     return {"ok": True}
 
+@app.patch("/api/wholesale/tiers/{tier_id}")
+async def api_update_price_tier(
+    tier_id: int,
+    min_qty: int = Form(...),
+    price: float = Form(...),
+    x_admin_id: Optional[str] = Header(None)
+):
+    import math
+
+    check_admin(x_admin_id)
+
+    if min_qty < 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Минимальное количество должно быть от 1"
+        )
+
+    if not math.isfinite(price) or price <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Цена должна быть больше нуля"
+        )
+
+    await update_price_tier(tier_id, min_qty, price)
+
+    return {"ok": True}
+    
 @app.delete("/api/wholesale/tiers/{tier_id}")
 async def api_delete_price_tier(tier_id: int):
     await delete_price_tier(tier_id)
