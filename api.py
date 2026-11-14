@@ -1333,3 +1333,46 @@ async def api_admin_retail_orders(
 
     return {"orders": orders}
     
+class RetailOrderStatusIn(BaseModel):
+    status: str
+
+
+@app.patch("/api/admin/retail/orders/{order_id}/status")
+async def api_update_retail_order_status(
+    order_id: int,
+    data: RetailOrderStatusIn,
+    x_telegram_init_data: Optional[str] = Header(None),
+):
+    verified_user_id = verify_telegram_init_data(
+        x_telegram_init_data or ""
+    )
+
+    if verified_user_id != int(ADMIN_ID):
+        raise HTTPException(403, "Доступ запрещён")
+
+    allowed_statuses = ("new", "shipped", "done", "cancelled")
+
+    if data.status not in allowed_statuses:
+        raise HTTPException(400, "Неверный статус заказа")
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            "SELECT delivery_type FROM retail_orders WHERE id = ?",
+            (order_id,),
+        )
+        order = await cursor.fetchone()
+        await cursor.close()
+
+        if not order:
+            raise HTTPException(404, "Заказ не найден")
+
+        if order[0] == "pickup" and data.status == "shipped":
+            raise HTTPException(400, "Самовывоз нельзя отметить отправленным")
+
+        await db.execute(
+            "UPDATE retail_orders SET status = ? WHERE id = ?",
+            (data.status, order_id),
+        )
+        await db.commit()
+
+    return {"ok": True, "order_id": order_id, "status": data.status}
