@@ -791,7 +791,43 @@ async def create_wholesale_category(name: str):
         async with db.execute("SELECT last_insert_rowid()") as cursor:
             row = await cursor.fetchone()
             return row[0]
+async def reorder_wholesale_products(
+    category_id: int,
+    product_ids: list[int]
+):
+    if len(product_ids) != len(set(product_ids)):
+        raise ValueError("Повторяющиеся ID товаров")
 
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT id FROM wholesale_products WHERE category_id = ?",
+            (category_id,)
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+        existing_ids = {row[0] for row in rows}
+
+        if set(product_ids) != existing_ids:
+            raise ValueError("Список товаров категории не совпадает")
+
+        try:
+            await db.execute("BEGIN")
+
+            for position, product_id in enumerate(product_ids):
+                await db.execute(
+                    """
+                    UPDATE wholesale_products
+                    SET sort_order = ?
+                    WHERE id = ? AND category_id = ?
+                    """,
+                    (position, product_id, category_id)
+                )
+
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            raise
+            
 async def get_wholesale_products(category_id: int = None):
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
