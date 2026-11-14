@@ -362,7 +362,94 @@ async def admin_product_photo(
     await update_product(product_id, photo_file_id=filename)
     return {"ok": True, "photo": f"/media/{filename}"}
 
+@app.post("/api/wholesale/products/{product_id}/photo")
+async def upload_wholesale_photo(
+    product_id: int,
+    file: UploadFile = File(...),
+    x_telegram_init_data: Optional[str] = Header(None)
+):
+    import hashlib
+    import hmac
+    import json
+    import time
+    from urllib.parse import parse_qsl
 
+    if not x_telegram_init_data or not BOT_TOKEN:
+        raise HTTPException(401, "Telegram authorization required")
+
+    try:
+        data = dict(parse_qsl(x_telegram_init_data))
+        received_hash = data.pop("hash")
+        check_string = "\n".join(
+            f"{key}={value}"
+            for key, value in sorted(data.items())
+        )
+
+        secret = hmac.new(
+            b"WebAppData",
+            BOT_TOKEN.encode(),
+            hashlib.sha256
+        ).digest()
+
+        expected_hash = hmac.new(
+            secret,
+            check_string.encode(),
+            hashlib.sha256
+        ).hexdigest()
+
+        if not hmac.compare_digest(received_hash, expected_hash):
+            raise ValueError("Invalid signature")
+
+        auth_date = int(data["auth_date"])
+        if not 0 <= time.time() - auth_date <= 86400:
+            raise ValueError("Expired authorization")
+
+        user = json.loads(data["user"])
+        if int(user["id"]) != int(ADMIN_ID):
+            raise HTTPException(403, "Admin only")
+
+    except HTTPException:
+        raise
+    except (KeyError, ValueError, TypeError, json.JSONDecodeError):
+        raise HTTPException(401, "Invalid Telegram authorization")
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT id FROM wholesale_products WHERE id = ?",
+            (product_id,)
+        ) as cursor:
+            if not await cursor.fetchone():
+                raise HTTPException(404, "Product not found")
+
+    content = await file.read(5 * 1024 * 1024 + 1)
+
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(413, "Image too large")
+
+    if content.startswith(b"\xff\xd8\xff"):
+        ext = ".jpg"
+    elif content.startswith(b"\x89PNG\r\n\x1a\n"):
+        ext = ".png"
+    elif content.startswith(b"RIFF") and content[8:12] == b"WEBP":
+        ext = ".webp"
+    else:
+        raise HTTPException(400, "Unsupported image format")
+
+    filename = f"wholesale_{product_id}_{uuid.uuid4().hex}{ext}"
+    path = os.path.join(PHOTOS_DIR, filename)
+
+    with open(path, "wb") as output:
+        output.write(content)
+
+    photo_url = f"/media/{filename}"
+
+    await update_wholesale_product(
+        product_id,
+        photo_url=photo_url
+    )
+
+    return {"ok": True, "photo_url": photo_url}
+    
 @app.get("/admin/users")
 async def admin_users(page: int = 0, x_admin_id: Optional[str] = Header(None)):
     check_admin(x_admin_id)
