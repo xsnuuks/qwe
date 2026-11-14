@@ -1194,3 +1194,36 @@ async def create_retail_product(
             await db.rollback()
             raise
 
+async def get_retail_flavors(product_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+
+        async with db.execute(
+            """
+            SELECT id, product_id, name, stock
+            FROM retail_flavors
+            WHERE product_id = ?
+            ORDER BY id
+            """,
+            (product_id,)
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+
+async def get_retail_price_tiers(product_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+
+        async with db.execute(
+            """
+            SELECT id, product_id, min_qty, price
+            FROM retail_price_tiers
+            WHERE product_id = ?
+            ORDER BY min_qty ASC
+            """,
+            (product_id,)
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
