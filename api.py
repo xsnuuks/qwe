@@ -1356,23 +1356,75 @@ async def api_update_retail_order_status(
         raise HTTPException(400, "Неверный статус заказа")
 
     async with aiosqlite.connect(DB_PATH) as db:
-        cursor = await db.execute(
-            "SELECT delivery_type FROM retail_orders WHERE id = ?",
-            (order_id,),
-        )
-        order = await cursor.fetchone()
-        await cursor.close()
+        try:
+            await db.execute("BEGIN IMMEDIATE")
 
-        if not order:
-            raise HTTPException(404, "Заказ не найден")
+            cursor = await db.execute(
+                """
+                SELECT delivery_type, status
+                FROM retail_orders
+                WHERE id = ?
+                """,
+                (order_id,),
+            )
+            order = await cursor.fetchone()
+            await cursor.close()
 
-        if order[0] == "pickup" and data.status == "shipped":
-            raise HTTPException(400, "Самовывоз нельзя отметить отправленным")
+            if not order:
+                raise HTTPException(404, "Заказ не найден")
 
-        await db.execute(
-            "UPDATE retail_orders SET status = ? WHERE id = ?",
-            (data.status, order_id),
-        )
-        await db.commit()
+            delivery_type, old_status = order
+
+            if delivery_type == "pickup" and data.status == "shipped":
+                raise HTTPException(
+                    400, "Самовывоз нельзя отметить отправленным"
+                )
+
+            if old_status == "cancelled" and data.status != "cancelled":
+                raise HTTPException(
+                    400, "Отменённый заказ нельзя восстановить"
+                )
+
+            if old_status == "done" and data.status == "cancelled":
+                raise HTTPException(
+                    400, "Завершённый заказ нельзя отменить"
+                )
+
+            if data.status == "cancelled" and old_status != "cancelled":
+                cursor = await db.execute(
+                    """
+                    SELECT flavor_id, quantity
+                    FROM retail_order_items
+                    WHERE order_id = ?
+                    """,
+                    (order_id,),
+                )
+                items = await cursor.fetchall()
+                await cursor.close()
+
+                for flavor_id, quantity in items:
+                    await db.execute(
+                        """
+                        UPDATE retail_flavors
+                        SET stock = stock + ?
+                        WHERE id = ?
+                        """,
+                        (quantity, flavor_id),
+                    )
+
+            await db.execute(
+                """
+                UPDATE retail_orders
+                SET status = ?
+                WHERE id = ?
+                """,
+                (data.status, order_id),
+            )
+
+            await db.commit()
+
+        except Exception:
+            await db.rollback()
+            raise
 
     return {"ok": True, "order_id": order_id, "status": data.status}
