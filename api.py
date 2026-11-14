@@ -39,6 +39,7 @@ from database import (
     get_flavors, get_wholesale_categories,
     create_wholesale_category,
     get_wholesale_products, get_retail_products,
+    create_retail_product,
     reorder_wholesale_products,
     create_wholesale_product,
     update_wholesale_product,
@@ -895,3 +896,56 @@ async def api_get_retail_products(
     products = await get_retail_products(category_id)
     return {"products": products}
     
+# Создание товара новой розницы
+
+class RetailTierCreate(BaseModel):
+    min_qty: int
+    price: float
+
+
+class RetailFlavorCreate(BaseModel):
+    name: str
+    stock: int = 0
+
+
+class RetailProductCreate(BaseModel):
+    category_id: int
+    name: str
+    description: str = ""
+    tiers: List[RetailTierCreate]
+    flavors: List[RetailFlavorCreate]
+
+
+@app.post("/api/retail/products")
+async def api_create_retail_product(
+    data: RetailProductCreate,
+    x_admin_id: Optional[str] = Header(None)
+):
+    check_admin(x_admin_id)
+
+    if not data.name.strip():
+        raise HTTPException(400, "Введите название товара")
+
+    if not data.tiers:
+        raise HTTPException(400, "Добавьте ценовые пороги")
+
+    if not data.flavors:
+        raise HTTPException(400, "Добавьте вкусы")
+
+    try:
+        product_id = await create_retail_product(
+            category_id=data.category_id,
+            name=data.name,
+            description=data.description,
+            tiers=[tier.model_dump() for tier in data.tiers],
+            flavors=[flavor.model_dump() for flavor in data.flavors]
+        )
+
+    except (ValueError, KeyError, TypeError) as error:
+        raise HTTPException(400, str(error))
+
+    return {
+        "ok": True,
+        "id": product_id
+    }
+
