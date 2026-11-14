@@ -751,8 +751,21 @@ async def api_add_flavor(
     return {"ok": True}
 
 @app.patch("/api/wholesale/flavors/{flavor_id}")
-async def api_update_flavor_stock(flavor_id: int, stock: int = Form(...)):
-    await update_flavor_stock(flavor_id, stock)
+async def api_update_flavor_stock(
+    flavor_id: int,
+    stock: int = Form(...),
+    name: Optional[str] = Form(None),
+    x_admin_id: Optional[str] = Header(None)
+):
+    check_admin(x_admin_id)
+
+    if stock < 0:
+        raise HTTPException(400, "Количество не может быть отрицательным")
+
+    if name is not None and not name.strip():
+        raise HTTPException(400, "Название не может быть пустым")
+
+    await update_flavor_stock(flavor_id, stock, name)
     return {"ok": True}
 
 @app.delete("/api/wholesale/flavors/{flavor_id}")
