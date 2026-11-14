@@ -1059,11 +1059,11 @@ async def api_create_retail_order(
         raise HTTPException(400, "Неверный способ оплаты")
 
     if data.delivery_type == "delivery":
-    if not data.first_name.strip() or not data.last_name.strip():
-        raise HTTPException(400, "Укажите имя и фамилию")
+        if not data.first_name.strip() or not data.last_name.strip():
+            raise HTTPException(400, "Укажите имя и фамилию")
 
-    if not data.phone.strip():
-        raise HTTPException(400, "Укажите телефон")
+        if not data.phone.strip():
+            raise HTTPException(400, "Укажите телефон")
 
     if data.delivery_type == "delivery":
         if not all([
