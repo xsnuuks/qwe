@@ -194,7 +194,67 @@ async def init_db():
         """)
         await db.commit()
 
+# === НОВАЯ РОЗНИЦА ===
 
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS retail_categories (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL
+            )
+        """)
+
+        for category_id, category_name in [
+            (1, "Жижи"),
+            (2, "Одноразки"),
+            (3, "Поды"),
+            (4, "Картриджи"),
+            (5, "Снюс")
+        ]:
+            await db.execute(
+                """
+                INSERT OR IGNORE INTO retail_categories (id, name)
+                VALUES (?, ?)
+                """,
+                (category_id, category_name)
+            )
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS retail_products (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                category_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                description TEXT DEFAULT '',
+                photo_url TEXT,
+                is_visible INTEGER DEFAULT 1,
+                sort_order INTEGER DEFAULT 0,
+                created_at TEXT,
+                FOREIGN KEY (category_id)
+                    REFERENCES retail_categories(id)
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS retail_flavors (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                product_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                stock INTEGER DEFAULT 0,
+                FOREIGN KEY (product_id)
+                    REFERENCES retail_products(id)
+            )
+        """)
+
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS retail_price_tiers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                product_id INTEGER NOT NULL,
+                min_qty INTEGER NOT NULL,
+                price REAL NOT NULL,
+                FOREIGN KEY (product_id)
+                    REFERENCES retail_products(id)
+            )
+        """)
+        
 async def get_user(user_id: int) -> Optional[Dict[str, Any]]:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
