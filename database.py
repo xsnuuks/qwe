@@ -192,7 +192,6 @@ async def init_db():
                 FOREIGN KEY (product_id) REFERENCES wholesale_products(id)
             )
         """)
-        await db.commit()
 
 # === НОВАЯ РОЗНИЦА ===
 
@@ -254,6 +253,8 @@ async def init_db():
                     REFERENCES retail_products(id)
             )
         """)
+
+await db.commit()
         
 async def get_user(user_id: int) -> Optional[Dict[str, Any]]:
     async with aiosqlite.connect(DB_PATH) as db:
