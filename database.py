@@ -254,7 +254,7 @@ async def init_db():
             )
         """)
 
-await db.commit()
+        await db.commit()
         
 async def get_user(user_id: int) -> Optional[Dict[str, Any]]:
     async with aiosqlite.connect(DB_PATH) as db:
