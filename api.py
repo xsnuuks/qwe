@@ -951,3 +951,13 @@ async def api_create_retail_product(
         "id": product_id
     }
 
+@app.get("/api/retail/products/{product_id}/flavors")
+async def api_get_retail_flavors(product_id: int):
+    flavors = await get_retail_flavors(product_id)
+    return {"flavors": flavors}
+
+
+@app.get("/api/retail/products/{product_id}/tiers")
+async def api_get_retail_tiers(product_id: int):
+    tiers = await get_retail_price_tiers(product_id)
+    return {"tiers": tiers}
