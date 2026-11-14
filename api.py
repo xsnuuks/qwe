@@ -698,6 +698,34 @@ async def api_create_wholesale_category(
     cat_id = await create_wholesale_category(name)
     return {"id": cat_id, "name": name}
 
+class WholesaleReorderRequest(BaseModel):
+    category_id: int
+    product_ids: List[int]
+
+
+@app.post("/api/wholesale/products/reorder")
+async def api_reorder_wholesale_products(
+    data: WholesaleReorderRequest,
+    x_admin_id: Optional[str] = Header(None)
+):
+    check_admin(x_admin_id)
+
+    if data.category_id < 1:
+        raise HTTPException(400, "Некорректная категория")
+
+    if not data.product_ids:
+        raise HTTPException(400, "Список товаров пуст")
+
+    try:
+        await reorder_wholesale_products(
+            data.category_id,
+            data.product_ids
+        )
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+
+    return {"ok": True}
+    
 @app.get("/api/wholesale/products")
 async def api_get_wholesale_products(category_id: int = None):
     products = await get_wholesale_products(category_id)
