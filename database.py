@@ -1266,3 +1266,94 @@ async def get_retail_price_tiers(product_id: int):
             rows = await cursor.fetchall()
             return [dict(row) for row in rows]
 
+async def calculate_retail_order(items: list):
+    from decimal import Decimal, ROUND_HALF_UP
+
+    if not items:
+        raise ValueError("Корзина пуста")
+
+    quantities = {}
+    product_quantities = {}
+
+    for item in items:
+        product_id = int(item["product_id"])
+        flavor_id = int(item["flavor_id"])
+        quantity = int(item["quantity"])
+
+        if product_id < 1 or flavor_id < 1 or quantity < 1:
+            raise ValueError("Некорректное количество или товар")
+
+        key = (product_id, flavor_id)
+        quantities[key] = quantities.get(key, 0) + quantity
+        product_quantities[product_id] = (
+            product_quantities.get(product_id, 0) + quantity
+        )
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        result = []
+        total = Decimal("0.00")
+
+        for (product_id, flavor_id), quantity in quantities.items():
+            async with db.execute(
+                """
+                SELECT p.name AS product_name,
+                       p.is_visible,
+                       f.name AS flavor_name,
+                       f.stock
+                FROM retail_products p
+                JOIN retail_flavors f ON f.product_id = p.id
+                WHERE p.id = ? AND f.id = ?
+                """,
+                (product_id, flavor_id)
+            ) as cursor:
+                product = await cursor.fetchone()
+
+            if not product or not product["is_visible"]:
+                raise ValueError("Товар больше недоступен")
+
+            if quantity > product["stock"]:
+                raise ValueError(
+                    f"Недостаточно товара: {product['flavor_name']}"
+                )
+
+            async with db.execute(
+                """
+                SELECT min_qty, price
+                FROM retail_price_tiers
+                WHERE product_id = ? AND min_qty <= ?
+                ORDER BY min_qty DESC
+                LIMIT 1
+                """,
+                (product_id, product_quantities[product_id])
+            ) as cursor:
+                tier = await cursor.fetchone()
+
+            if not tier:
+                raise ValueError("Для товара не указана цена")
+
+            unit_price = Decimal(str(tier["price"])).quantize(
+                Decimal("0.01"),
+                rounding=ROUND_HALF_UP
+            )
+
+            if not unit_price.is_finite() or unit_price <= 0:
+                raise ValueError("Некорректная цена товара")
+
+            line_total = unit_price * quantity
+            total += line_total
+
+            result.append({
+                "product_id": product_id,
+                "flavor_id": flavor_id,
+                "product_name": product["product_name"],
+                "flavor_name": product["flavor_name"],
+                "quantity": quantity,
+                "unit_price": float(unit_price),
+                "line_total": float(line_total),
+            })
+
+        return {
+            "items": result,
+            "items_total": float(total),
+        }
