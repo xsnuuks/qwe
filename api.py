@@ -1203,7 +1203,7 @@ async def api_create_retail_order(
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    data.user_id,
+                    verified_user_id,
                     data.delivery_type,
                     data.first_name.strip(),
                     data.last_name.strip(),
