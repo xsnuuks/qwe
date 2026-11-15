@@ -1402,6 +1402,25 @@ def verify_telegram_init_data(init_data: str) -> int:
     except (ValueError, KeyError, TypeError, json.JSONDecodeError):
         raise HTTPException(401, "Недействительная авторизация Telegram")
 
+def get_telegram_username(init_data: str) -> str:
+    import json
+    from urllib.parse import parse_qsl
+
+    # Проверяем подлинность данных Telegram
+    verify_telegram_init_data(init_data)
+
+    try:
+        values = dict(parse_qsl(init_data, keep_blank_values=True))
+        user = json.loads(values.get("user", "{}"))
+        username = user.get("username", "")
+
+        if isinstance(username, str):
+            return username
+
+        return ""
+    except (ValueError, TypeError, json.JSONDecodeError):
+        return ""
+
 class WholesaleOrderItemIn(BaseModel):
     product_id: int
     flavor_id: int
