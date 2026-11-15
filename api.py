@@ -1751,12 +1751,29 @@ async def api_create_wholesale_order(
                 )
 
                 try:
-                    await bot.send_message(
-                        chat_id=ADMIN_ID,
-                        text=message,
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+    reply_markup = None
+
+    if buyer_username:
+        reply_markup = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="💬 Связаться с покупателем",
+                        url=f"https://t.me/{buyer_username}",
                     )
-                except Exception:
-                    pass
+                ]
+            ]
+        )
+
+    await bot.send_message(
+        chat_id=ADMIN_ID,
+        text=message,
+        reply_markup=reply_markup,
+    )
+except Exception:
+    pass
 
             return {
                 "ok": True,
