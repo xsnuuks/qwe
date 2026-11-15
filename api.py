@@ -1421,6 +1421,284 @@ class WholesaleOrderCreateIn(BaseModel):
     house: str
     payment_method: str
     items: list[WholesaleOrderItemIn]
+
+def validate_wholesale_order(data: WholesaleOrderCreateIn):
+    if not data.request_id.strip() or len(data.request_id) > 100:
+        raise HTTPException(400, "Неверный идентификатор заказа")
+
+    if data.payment_method not in ("usdt", "uah"):
+        raise HTTPException(400, "Неверный способ оплаты")
+
+    required_fields = (
+        data.first_name,
+        data.last_name,
+        data.phone,
+        data.country,
+        data.city,
+        data.postal_code,
+        data.street,
+        data.house,
+    )
+
+    if any(not value.strip() for value in required_fields):
+        raise HTTPException(400, "Заполните данные доставки")
+
+    if not data.items:
+        raise HTTPException(400, "Корзина пуста")
+
+    if any(
+        item.product_id <= 0
+        or item.flavor_id <= 0
+        or item.quantity <= 0
+        for item in data.items
+    ):
+        raise HTTPException(400, "Неверное количество или товар")
+
+    total_quantity = sum(item.quantity for item in data.items)
+
+    if total_quantity < 20:
+        raise HTTPException(
+            400, "Минимальный оптовый заказ — 20 единиц"
+        )
+
+    pairs = [
+        (item.product_id, item.flavor_id)
+        for item in data.items
+    ]
+
+    if len(pairs) != len(set(pairs)):
+        raise HTTPException(400, "Повторяющиеся позиции в корзине")
+
+    return total_quantity
+
+async def get_wholesale_order_price(
+    db,
+    product_id: int,
+    total_quantity: int,
+):
+    cursor = await db.execute(
+        """
+        SELECT price
+        FROM wholesale_price_tiers
+        WHERE product_id = ?
+          AND min_qty <= ?
+        ORDER BY min_qty DESC
+        LIMIT 1
+        """,
+        (product_id, total_quantity),
+    )
+
+    tier = await cursor.fetchone()
+    await cursor.close()
+
+async def prepare_wholesale_order_items(
+    db,
+    items: list[WholesaleOrderItemIn],
+    total_quantity: int,
+):
+    from decimal import Decimal
+
+    prepared = []
+    total = Decimal("0.00")
+
+    for item in items:
+        cursor = await db.execute(
+            """
+            SELECT
+                p.name,
+                p.is_visible,
+                f.name,
+                f.stock
+            FROM wholesale_products p
+            JOIN wholesale_flavors f
+                ON f.product_id = p.id
+            WHERE p.id = ? AND f.id = ?
+            """,
+            (item.product_id, item.flavor_id),
+        )
+        product = await cursor.fetchone()
+        await cursor.close()
+
+        if not product or not product[1]:
+            raise ValueError("Один из оптовых товаров недоступен")
+
+        if item.quantity > product[3]:
+            raise ValueError(
+                f"Недостаточно на складе: {product[2]}"
+            )
+
+        unit_price = await get_wholesale_order_price(
+            db,
+            item.product_id,
+            total_quantity,
+        )
+
+        line_total = unit_price * item.quantity
+        total += line_total
+
+        prepared.append({
+            "product_id": item.product_id,
+            "flavor_id": item.flavor_id,
+            "product_name": product[0],
+            "flavor_name": product[2],
+            "quantity": item.quantity,
+            "unit_price": unit_price,
+            "line_total": line_total,
+        })
+
+    return prepared, total
+
+@app.post("/api/wholesale/orders")
+async def api_create_wholesale_order(
+    data: WholesaleOrderCreateIn,
+    x_telegram_init_data: Optional[str] = Header(None),
+):
+    from datetime import datetime, timezone
+    import sqlite3
+
+    user_id = verify_telegram_init_data(
+        x_telegram_init_data or ""
+    )
+
+    total_quantity = validate_wholesale_order(data)
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        try:
+            await db.execute("BEGIN IMMEDIATE")
+
+            cursor = await db.execute(
+                """
+                SELECT id, user_id
+                FROM wholesale_orders
+                WHERE request_id = ?
+                """,
+                (data.request_id,),
+            )
+            existing = await cursor.fetchone()
+            await cursor.close()
+
+            if existing:
+                if existing[1] != user_id:
+                    raise HTTPException(
+                        409, "Идентификатор заказа уже используется"
+                    )
+
+                await db.rollback()
+                return {
+                    "ok": True,
+                    "order_id": existing[0],
+                    "already_created": True,
+                }
+
+            prepared, total = await prepare_wholesale_order_items(
+                db,
+                data.items,
+                total_quantity,
+            )
+
+            cursor = await db.execute(
+                """
+                INSERT INTO wholesale_orders (
+                    request_id, user_id,
+                    first_name, last_name, phone, email,
+                    country, city, postal_code, street, house,
+                    payment_method, items_total, status,
+                    created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    data.request_id,
+                    user_id,
+                    data.first_name.strip(),
+                    data.last_name.strip(),
+                    data.phone.strip(),
+                    data.email.strip(),
+                    data.country.strip(),
+                    data.city.strip(),
+                    data.postal_code.strip(),
+                    data.street.strip(),
+                    data.house.strip(),
+                    data.payment_method,
+                    float(total),
+                    "new",
+                    datetime.now(timezone.utc).isoformat(),
+                ),
+            )
+
+            order_id = cursor.lastrowid
+            await cursor.close()
+
+            for item in prepared:
+                cursor = await db.execute(
+                    """
+                    UPDATE wholesale_flavors
+                    SET stock = stock - ?
+                    WHERE id = ?
+                      AND product_id = ?
+                      AND stock >= ?
+                    """,
+                    (
+                        item["quantity"],
+                        item["flavor_id"],
+                        item["product_id"],
+                        item["quantity"],
+                    ),
+                )
+
+                changed = cursor.rowcount
+                await cursor.close()
+
+                if changed != 1:
+                    raise HTTPException(
+                        409, "Недостаточно товара на складе"
+                    )
+
+                await db.execute(
+                    """
+                    INSERT INTO wholesale_order_items (
+                        order_id, product_id, flavor_id,
+                        product_name, flavor_name,
+                        quantity, unit_price, line_total
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        order_id,
+                        item["product_id"],
+                        item["flavor_id"],
+                        item["product_name"],
+                        item["flavor_name"],
+                        item["quantity"],
+                        float(item["unit_price"]),
+                        float(item["line_total"]),
+                    ),
+                )
+
+            await db.commit()
+
+            return {
+                "ok": True,
+                "order_id": order_id,
+                "items_total": float(total),
+                "total_quantity": total_quantity,
+                "already_created": False,
+            }
+
+        except HTTPException:
+            await db.rollback()
+            raise
+        except ValueError as error:
+            await db.rollback()
+            raise HTTPException(400, str(error))
+        except sqlite3.IntegrityError:
+            await db.rollback()
+            raise HTTPException(
+                409, "Конфликт при создании заказа"
+            )
+        except Exception:
+            await db.rollback()
+            raise
     
 @app.post("/api/retail/orders")
 async def api_create_retail_order(
