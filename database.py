@@ -1257,7 +1257,7 @@ async def get_retail_flavors(product_id: int):
 
         async with db.execute(
             """
-            SELECT id, product_id, name, stock
+            SELECT id, product_id, name, stock, is_active
             FROM retail_flavors
             WHERE product_id = ?
             ORDER BY id
