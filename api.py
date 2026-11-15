@@ -1401,6 +1401,26 @@ def verify_telegram_init_data(init_data: str) -> int:
 
     except (ValueError, KeyError, TypeError, json.JSONDecodeError):
         raise HTTPException(401, "Недействительная авторизация Telegram")
+
+class WholesaleOrderItemIn(BaseModel):
+    product_id: int
+    flavor_id: int
+    quantity: int
+
+
+class WholesaleOrderCreateIn(BaseModel):
+    request_id: str
+    first_name: str
+    last_name: str
+    phone: str
+    email: str = ""
+    country: str
+    city: str
+    postal_code: str
+    street: str
+    house: str
+    payment_method: str
+    items: list[WholesaleOrderItemIn]
     
 @app.post("/api/retail/orders")
 async def api_create_retail_order(
