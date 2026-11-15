@@ -1586,9 +1586,10 @@ async def api_create_wholesale_order(
 
     user_id = verify_telegram_init_data(
         x_telegram_init_data or ""
-        buyer_username = get_telegram_username(
-        x_telegram_init_data or ""
     )
+
+    buyer_username = get_telegram_username(
+        x_telegram_init_data or ""
     )
 
     total_quantity = validate_wholesale_order(data)
