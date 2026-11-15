@@ -980,6 +980,89 @@ async def api_get_retail_tiers(product_id: int):
     tiers = await get_retail_price_tiers(product_id)
     return {"tiers": tiers}
 
+class RetailPriceTierIn(BaseModel):
+    min_qty: int
+    price: float
+
+
+class RetailPriceTiersUpdateIn(BaseModel):
+    tiers: list[RetailPriceTierIn]
+
+
+@app.put("/api/retail/products/{product_id}/tiers")
+async def api_update_retail_tiers(
+    product_id: int,
+    data: RetailPriceTiersUpdateIn,
+    x_telegram_init_data: Optional[str] = Header(None),
+):
+    import math
+
+    user_id = verify_telegram_init_data(
+        x_telegram_init_data or ""
+    )
+
+    if user_id != int(ADMIN_ID):
+        raise HTTPException(403, "Доступ запрещён")
+
+    tiers = data.tiers
+
+    if not tiers:
+        raise HTTPException(400, "Добавьте хотя бы одну цену")
+
+    quantities = [tier.min_qty for tier in tiers]
+
+    if any(q < 1 for q in quantities):
+        raise HTTPException(400, "Количество должно быть от 1")
+
+    if len(quantities) != len(set(quantities)):
+        raise HTTPException(400, "Пороги количества повторяются")
+
+    if 1 not in quantities:
+        raise HTTPException(400, "Нужна цена от 1 шт.")
+
+    if any(
+        not math.isfinite(tier.price) or tier.price <= 0
+        for tier in tiers
+    ):
+        raise HTTPException(400, "Цена должна быть больше 0")
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        try:
+            await db.execute("BEGIN IMMEDIATE")
+
+            cursor = await db.execute(
+                "SELECT id FROM retail_products WHERE id = ?",
+                (product_id,),
+            )
+            product = await cursor.fetchone()
+            await cursor.close()
+
+            if not product:
+                raise HTTPException(404, "Товар не найден")
+
+            await db.execute(
+                "DELETE FROM retail_price_tiers WHERE product_id = ?",
+                (product_id,),
+            )
+
+            for tier in sorted(tiers, key=lambda t: t.min_qty):
+                await db.execute(
+                    """
+                    INSERT INTO retail_price_tiers
+                    (product_id, min_qty, price)
+                    VALUES (?, ?, ?)
+                    """,
+                    (product_id, tier.min_qty, tier.price),
+                )
+
+            await db.commit()
+
+        except Exception:
+            await db.rollback()
+            raise
+
+    return {"ok": True, "product_id": product_id}
+    
 class RetailFlavorCreateIn(BaseModel):
     name: str
     stock: int = 0
