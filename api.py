@@ -1428,3 +1428,46 @@ async def api_update_retail_order_status(
             raise
 
     return {"ok": True, "order_id": order_id, "status": data.status}
+
+@app.get("/api/retail/my-orders")
+async def api_retail_my_orders(
+    x_telegram_init_data: Optional[str] = Header(None),
+):
+    user_id = verify_telegram_init_data(
+        x_telegram_init_data or ""
+    )
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+
+        cursor = await db.execute(
+            """
+            SELECT *
+            FROM retail_orders
+            WHERE user_id = ?
+            ORDER BY id DESC
+            LIMIT 100
+            """,
+            (user_id,),
+        )
+        orders = [dict(row) for row in await cursor.fetchall()]
+        await cursor.close()
+
+        for order in orders:
+            cursor = await db.execute(
+                """
+                SELECT product_id, flavor_id,
+                       product_name, flavor_name,
+                       quantity, unit_price, line_total
+                FROM retail_order_items
+                WHERE order_id = ?
+                ORDER BY id
+                """,
+                (order["id"],),
+            )
+            order["items"] = [
+                dict(row) for row in await cursor.fetchall()
+            ]
+            await cursor.close()
+
+    return {"orders": orders}
