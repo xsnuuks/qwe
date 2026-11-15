@@ -1549,7 +1549,7 @@ async def api_cancel_my_retail_order(
             await db.rollback()
             raise
             
-            if bot:
+    if bot:
         try:
             await bot.send_message(
                 chat_id=user_id,
