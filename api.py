@@ -1491,6 +1491,14 @@ async def get_wholesale_order_price(
     tier = await cursor.fetchone()
     await cursor.close()
 
+    if tier is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Для одного из товаров не найдена оптовая цена"
+        )
+
+    return float(tier[0])
+
 async def prepare_wholesale_order_items(
     db,
     items: list[WholesaleOrderItemIn],
