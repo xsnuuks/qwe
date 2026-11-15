@@ -1833,6 +1833,38 @@ async def api_update_wholesale_order_status(
             await db.rollback()
             raise
 
+    # Статус сохранён. Получаем Telegram ID покупателя.
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            "SELECT user_id FROM wholesale_orders WHERE id = ?",
+            (order_id,),
+        )
+        buyer = await cursor.fetchone()
+        await cursor.close()
+
+    if buyer and bot:
+        buyer_id = int(buyer[0])
+
+        if data.status == "done":
+            message = (
+                f"✅ Ваш заказ №{order_id} выполнен!\n\n"
+                "Спасибо за заказ в Puffy Store!"
+            )
+        else:
+            message = (
+                f"❌ Ваш заказ №{order_id} отменён.\n\n"
+                "Для уточнения деталей свяжитесь с менеджером."
+            )
+
+        try:
+            await bot.send_message(
+                chat_id=buyer_id,
+                text=message,
+            )
+        except Exception:
+            # Ошибка Telegram не отменяет сохранённый статус.
+            pass
+
     return {
         "ok": True,
         "order_id": order_id,
