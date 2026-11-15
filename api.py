@@ -453,6 +453,65 @@ async def upload_wholesale_photo(
     )
 
     return {"ok": True, "photo_url": photo_url}
+
+@app.post("/api/retail/products/{product_id}/photo")
+async def upload_retail_photo(
+    product_id: int,
+    file: UploadFile = File(...),
+    x_telegram_init_data: Optional[str] = Header(None),
+):
+    user_id = verify_telegram_init_data(
+        x_telegram_init_data or ""
+    )
+
+    if user_id != int(ADMIN_ID):
+        raise HTTPException(403, "Доступ запрещён")
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            "SELECT id FROM retail_products WHERE id = ?",
+            (product_id,),
+        )
+        product = await cursor.fetchone()
+        await cursor.close()
+
+        if not product:
+            raise HTTPException(404, "Товар не найден")
+
+    content = await file.read(5 * 1024 * 1024 + 1)
+
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(413, "Фото больше 5 МБ")
+
+    if content.startswith(b"\xff\xd8\xff"):
+        ext = ".jpg"
+    elif content.startswith(b"\x89PNG\r\n\x1a\n"):
+        ext = ".png"
+    elif content.startswith(b"RIFF") and content[8:12] == b"WEBP":
+        ext = ".webp"
+    else:
+        raise HTTPException(400, "Используйте JPG, PNG или WEBP")
+
+    filename = f"retail_{product_id}_{uuid.uuid4().hex}{ext}"
+    path = os.path.join(PHOTOS_DIR, filename)
+
+    with open(path, "wb") as output:
+        output.write(content)
+
+    photo_url = f"/media/{filename}"
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """
+            UPDATE retail_products
+            SET photo_url = ?
+            WHERE id = ?
+            """,
+            (photo_url, product_id),
+        )
+        await db.commit()
+
+    return {"ok": True, "photo_url": photo_url}
     
 @app.get("/admin/users")
 async def admin_users(page: int = 0, x_admin_id: Optional[str] = Header(None)):
