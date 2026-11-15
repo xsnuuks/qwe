@@ -1125,8 +1125,9 @@ async def get_retail_products(category_id: int = None):
                  WHERE f.product_id = p.id) AS flavors_count,
 
                 (SELECT COALESCE(SUM(f.stock), 0)
-                 FROM retail_flavors f
-                 WHERE f.product_id = p.id) AS stock,
+                FROM retail_flavors f
+                WHERE f.product_id = p.id
+                AND f.is_active = 1) AS stock,
 
                 (SELECT COUNT(*)
                  FROM retail_price_tiers t
