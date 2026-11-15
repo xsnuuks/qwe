@@ -1686,6 +1686,55 @@ async def api_create_wholesale_order(
 
             await db.commit()
 
+            # Уведомление администратору о новом заказе
+            if bot and ADMIN_ID:
+                from zoneinfo import ZoneInfo
+
+                order_time = datetime.now(
+                    ZoneInfo("Europe/Berlin")
+                ).strftime("%d.%m.%Y %H:%M")
+
+                items_text = "\n".join(
+                    f"• {item['product_name']} — {item['flavor_name']}\n"
+                    f"  {item['quantity']} шт. × {float(item['unit_price']):.2f} €"
+                    for item in prepared
+                )
+
+                message = (
+                    f"📦 PUFFY WHOLESALE — Заказ №{order_id}\n"
+                    f"📅 {order_time} (Германия)\n\n"
+
+                    f"👤 ПОКУПАТЕЛЬ\n"
+                    f"Имя: {data.first_name}\n"
+                    f"Фамилия: {data.last_name}\n"
+                    f"Telegram ID: {user_id}\n"
+                    f"Телефон: {data.phone}\n"
+                    f"Email: {data.email or 'Не указан'}\n\n"
+
+                    f"📍 ДОСТАВКА\n"
+                    f"Страна: {data.country}\n"
+                    f"Город: {data.city}\n"
+                    f"Индекс: {data.postal_code}\n"
+                    f"Улица: {data.street}\n"
+                    f"Дом: {data.house}\n\n"
+
+                    f"📦 ТОВАРЫ\n"
+                    f"{items_text}\n\n"
+
+                    f"💳 Оплата: {data.payment_method}\n"
+                    f"💰 Сумма товаров: {float(total):.2f} €\n"
+                    f"🚚 Доставка: рассчитывается отдельно\n"
+                    f"📋 Статус: Новый"
+                )
+
+                try:
+                    await bot.send_message(
+                        chat_id=ADMIN_ID,
+                        text=message,
+                    )
+                except Exception:
+                    pass
+
             return {
                 "ok": True,
                 "order_id": order_id,
