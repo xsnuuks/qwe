@@ -1012,6 +1012,68 @@ async def api_create_retail_flavor(
 
     return {"ok": True, "flavor_id": flavor_id}
 
+@app.delete("/api/retail/flavors/{flavor_id}")
+async def api_delete_retail_flavor(
+    flavor_id: int,
+    x_telegram_init_data: Optional[str] = Header(None),
+):
+    user_id = verify_telegram_init_data(
+        x_telegram_init_data or ""
+    )
+
+    if user_id != int(ADMIN_ID):
+        raise HTTPException(403, "Доступ запрещён")
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        try:
+            await db.execute("BEGIN IMMEDIATE")
+
+            cursor = await db.execute(
+                "SELECT stock FROM retail_flavors WHERE id = ?",
+                (flavor_id,),
+            )
+            flavor = await cursor.fetchone()
+            await cursor.close()
+
+            if not flavor:
+                raise HTTPException(404, "Вкус не найден")
+
+            if flavor[0] > 0:
+                raise HTTPException(
+                    409,
+                    "Сначала установите остаток вкуса на 0"
+                )
+
+            cursor = await db.execute(
+                """
+                SELECT COUNT(*)
+                FROM retail_order_items
+                WHERE flavor_id = ?
+                """,
+                (flavor_id,),
+            )
+            orders_count = (await cursor.fetchone())[0]
+            await cursor.close()
+
+            if orders_count > 0:
+                raise HTTPException(
+                    409,
+                    "Вкус есть в истории заказов. Удаление запрещено"
+                )
+
+            await db.execute(
+                "DELETE FROM retail_flavors WHERE id = ?",
+                (flavor_id,),
+            )
+
+            await db.commit()
+
+        except Exception:
+            await db.rollback()
+            raise
+
+    return {"ok": True, "flavor_id": flavor_id}
+
 class RetailFlavorUpdateIn(BaseModel):
     name: str
     stock: int
