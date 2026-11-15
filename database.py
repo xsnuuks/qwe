@@ -196,6 +196,7 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS wholesale_orders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                request_id TEXT UNIQUE,
                 user_id INTEGER NOT NULL,
                 first_name TEXT NOT NULL,
                 last_name TEXT NOT NULL,
@@ -213,6 +214,24 @@ async def init_db():
                 created_at TEXT NOT NULL
             )
         """)
+
+        async with db.execute(
+            "PRAGMA table_info(wholesale_orders)"
+        ) as cursor:
+            columns = [row[1] for row in await cursor.fetchall()]
+
+        if "request_id" not in columns:
+            await db.execute(
+                "ALTER TABLE wholesale_orders ADD COLUMN request_id TEXT"
+            )
+
+        await db.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS
+            idx_wholesale_orders_request_id
+            ON wholesale_orders(request_id)
+            """
+        )
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS wholesale_order_items (
