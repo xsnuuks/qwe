@@ -1548,6 +1548,23 @@ async def api_cancel_my_retail_order(
         except Exception:
             await db.rollback()
             raise
+            
+            if bot:
+        try:
+            await bot.send_message(
+                chat_id=user_id,
+                text=(
+                    f"❌ Ваш заказ №{order_id} отменён.\n\n"
+                    "Заказ успешно отменён, товары возвращены на склад.\n\n"
+                    "Вы можете оформить новый заказ в Puffy Store."
+                ),
+            )
+        except Exception:
+            import logging
+            logging.exception(
+                "Не удалось отправить уведомление об отмене заказа %s",
+                order_id,
+            )
 
     return {
         "ok": True,
