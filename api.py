@@ -1471,3 +1471,87 @@ async def api_retail_my_orders(
             await cursor.close()
 
     return {"orders": orders}
+
+@app.post("/api/retail/my-orders/{order_id}/cancel")
+async def api_cancel_my_retail_order(
+    order_id: int,
+    x_telegram_init_data: Optional[str] = Header(None),
+):
+    user_id = verify_telegram_init_data(
+        x_telegram_init_data or ""
+    )
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        try:
+            await db.execute("BEGIN IMMEDIATE")
+
+            cursor = await db.execute(
+                """
+                SELECT status
+                FROM retail_orders
+                WHERE id = ? AND user_id = ?
+                """,
+                (order_id, user_id),
+            )
+            order = await cursor.fetchone()
+            await cursor.close()
+
+            if not order:
+                raise HTTPException(404, "Заказ не найден")
+
+            if order[0] == "cancelled":
+                await db.rollback()
+                return {
+                    "ok": True,
+                    "order_id": order_id,
+                    "status": "cancelled",
+                }
+
+            if order[0] != "new":
+                raise HTTPException(
+                    400,
+                    "Этот заказ уже нельзя отменить самостоятельно"
+                )
+
+            cursor = await db.execute(
+                """
+                SELECT flavor_id, quantity
+                FROM retail_order_items
+                WHERE order_id = ?
+                """,
+                (order_id,),
+            )
+            items = await cursor.fetchall()
+            await cursor.close()
+
+            for flavor_id, quantity in items:
+                await db.execute(
+                    """
+                    UPDATE retail_flavors
+                    SET stock = stock + ?
+                    WHERE id = ?
+                    """,
+                    (quantity, flavor_id),
+                )
+
+            await db.execute(
+                """
+                UPDATE retail_orders
+                SET status = 'cancelled'
+                WHERE id = ?
+                """,
+                (order_id,),
+            )
+
+            await db.commit()
+
+        except Exception:
+            await db.rollback()
+            raise
+
+    return {
+        "ok": True,
+        "order_id": order_id,
+        "status": "cancelled",
+    }
+
