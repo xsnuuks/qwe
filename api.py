@@ -1625,6 +1625,7 @@ async def api_admin_retail_orders(
             """
             SELECT *
             FROM retail_orders
+            WHERE is_archived = 0
             ORDER BY id DESC
             LIMIT 200
             """
@@ -1649,6 +1650,39 @@ async def api_admin_retail_orders(
             await cursor.close()
 
     return {"orders": orders}
+
+@app.delete("/api/admin/retail/orders/{order_id}")
+async def api_archive_retail_order(
+    order_id: int,
+    x_telegram_init_data: Optional[str] = Header(None),
+):
+    user_id = verify_telegram_init_data(
+        x_telegram_init_data or ""
+    )
+
+    if user_id != int(ADMIN_ID):
+        raise HTTPException(403, "Доступ запрещён")
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            """
+            UPDATE retail_orders
+            SET is_archived = 1
+            WHERE id = ? AND is_archived = 0
+            """,
+            (order_id,),
+        )
+        changed = cursor.rowcount
+        await cursor.close()
+
+        if changed != 1:
+            raise HTTPException(
+                404, "Заказ не найден или уже удалён"
+            )
+
+        await db.commit()
+
+    return {"ok": True, "order_id": order_id}
     
 class RetailOrderStatusIn(BaseModel):
     status: str
