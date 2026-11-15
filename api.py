@@ -1747,6 +1747,45 @@ async def api_get_my_wholesale_orders(
 
     return {"orders": orders}
 
+@app.get("/api/admin/wholesale/orders")
+async def api_get_admin_wholesale_orders(
+    x_telegram_init_data: Optional[str] = Header(None),
+):
+    user_id = verify_telegram_init_data(x_telegram_init_data or "")
+
+    if int(user_id) != int(ADMIN_ID):
+        raise HTTPException(status_code=403, detail="Доступ запрещён")
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+
+        cursor = await db.execute(
+            """
+            SELECT *
+            FROM wholesale_orders
+            ORDER BY id DESC
+            """
+        )
+        orders = [dict(row) for row in await cursor.fetchall()]
+        await cursor.close()
+
+        for order in orders:
+            cursor = await db.execute(
+                """
+                SELECT *
+                FROM wholesale_order_items
+                WHERE order_id = ?
+                ORDER BY id
+                """,
+                (order["id"],),
+            )
+            order["items"] = [
+                dict(row) for row in await cursor.fetchall()
+            ]
+            await cursor.close()
+
+    return {"orders": orders}
+    
 @app.post("/api/retail/orders")
 async def api_create_retail_order(
     data: RetailOrderCreateIn,
