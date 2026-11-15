@@ -1730,6 +1730,7 @@ async def api_create_wholesale_order(
                     f"Имя: {data.first_name}\n"
                     f"Фамилия: {data.last_name}\n"
                     f"Telegram ID: {user_id}\n"
+                    f"Telegram: {('@' + buyer_username) if buyer_username else 'Не указан'}\n"
                     f"Телефон: {data.phone}\n"
                     f"Email: {data.email or 'Не указан'}\n\n"
 
