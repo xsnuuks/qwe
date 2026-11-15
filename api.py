@@ -1747,6 +1747,99 @@ async def api_get_my_wholesale_orders(
 
     return {"orders": orders}
 
+class WholesaleOrderStatusIn(BaseModel):
+    status: str
+
+
+@app.patch("/api/admin/wholesale/orders/{order_id}/status")
+async def api_update_wholesale_order_status(
+    order_id: int,
+    data: WholesaleOrderStatusIn,
+    x_telegram_init_data: Optional[str] = Header(None),
+):
+    user_id = verify_telegram_init_data(x_telegram_init_data or "")
+
+    if int(user_id) != int(ADMIN_ID):
+        raise HTTPException(403, "Доступ запрещён")
+
+    if data.status not in ("done", "cancelled"):
+        raise HTTPException(400, "Недопустимый статус заказа")
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        try:
+            await db.execute("BEGIN IMMEDIATE")
+
+            cursor = await db.execute(
+                "SELECT status FROM wholesale_orders WHERE id = ?",
+                (order_id,),
+            )
+            order = await cursor.fetchone()
+            await cursor.close()
+
+            if not order:
+                raise HTTPException(404, "Заказ не найден")
+
+            old_status = order[0]
+
+            if old_status in ("done", "cancelled"):
+                if old_status != data.status:
+                    raise HTTPException(
+                        400, "Завершённый заказ нельзя изменить"
+                    )
+                await db.rollback()
+                return {
+                    "ok": True,
+                    "order_id": order_id,
+                    "status": old_status,
+                    "already_updated": True,
+                }
+
+            if old_status != "new":
+                raise HTTPException(400, "Неизвестный статус заказа")
+
+            if data.status == "cancelled":
+                cursor = await db.execute(
+                    """
+                    SELECT flavor_id, quantity
+                    FROM wholesale_order_items
+                    WHERE order_id = ?
+                    """,
+                    (order_id,),
+                )
+                items = await cursor.fetchall()
+                await cursor.close()
+
+                for flavor_id, quantity in items:
+                    await db.execute(
+                        """
+                        UPDATE wholesale_flavors
+                        SET stock = stock + ?
+                        WHERE id = ?
+                        """,
+                        (quantity, flavor_id),
+                    )
+
+            await db.execute(
+                """
+                UPDATE wholesale_orders
+                SET status = ?
+                WHERE id = ?
+                """,
+                (data.status, order_id),
+            )
+            await db.commit()
+
+        except Exception:
+            await db.rollback()
+            raise
+
+    return {
+        "ok": True,
+        "order_id": order_id,
+        "status": data.status,
+        "already_updated": False,
+    }
+
 @app.get("/api/admin/wholesale/orders")
 async def api_get_admin_wholesale_orders(
     x_telegram_init_data: Optional[str] = Header(None),
