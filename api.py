@@ -952,8 +952,26 @@ async def api_create_retail_product(
     }
 
 @app.get("/api/retail/products/{product_id}/flavors")
-async def api_get_retail_flavors(product_id: int):
+async def api_get_retail_flavors(
+    product_id: int,
+    x_telegram_init_data: Optional[str] = Header(None),
+):
     flavors = await get_retail_flavors(product_id)
+
+    is_admin = False
+    if x_telegram_init_data:
+        try:
+            user_id = verify_telegram_init_data(x_telegram_init_data)
+            is_admin = user_id == int(ADMIN_ID)
+        except Exception:
+            pass
+
+    if not is_admin:
+        flavors = [
+            flavor for flavor in flavors
+            if int(flavor.get("is_active", 1)) == 1
+        ]
+
     return {"flavors": flavors}
 
 
