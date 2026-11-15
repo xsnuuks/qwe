@@ -2264,7 +2264,6 @@ async def api_create_retail_order(
 
     # Уведомление администратору после сохранения заказа
     if bot and ADMIN_ID:
-        from datetime import datetime
         from zoneinfo import ZoneInfo
         from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
