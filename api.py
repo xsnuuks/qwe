@@ -962,6 +962,52 @@ async def api_get_retail_tiers(product_id: int):
     tiers = await get_retail_price_tiers(product_id)
     return {"tiers": tiers}
 
+class RetailProductUpdateIn(BaseModel):
+    name: str
+    description: str = ""
+    is_visible: bool = True
+
+
+@app.patch("/api/retail/products/{product_id}")
+async def api_update_retail_product(
+    product_id: int,
+    data: RetailProductUpdateIn,
+    x_telegram_init_data: Optional[str] = Header(None),
+):
+    user_id = verify_telegram_init_data(
+        x_telegram_init_data or ""
+    )
+
+    if user_id != int(ADMIN_ID):
+        raise HTTPException(403, "Доступ запрещён")
+
+    name = data.name.strip()
+
+    if not name:
+        raise HTTPException(400, "Название не может быть пустым")
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            """
+            UPDATE retail_products
+            SET name = ?, description = ?, is_visible = ?
+            WHERE id = ?
+            """,
+            (
+                name,
+                data.description.strip(),
+                int(data.is_visible),
+                product_id,
+            ),
+        )
+
+        if cursor.rowcount == 0:
+            raise HTTPException(404, "Товар не найден")
+
+        await db.commit()
+
+    return {"ok": True, "product_id": product_id}
+    
 # === РОЗНИЧНЫЕ ЗАКАЗЫ ===
 
 class RetailOrderItemIn(BaseModel):
