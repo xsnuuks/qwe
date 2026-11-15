@@ -1077,6 +1077,7 @@ async def api_delete_retail_flavor(
 class RetailFlavorUpdateIn(BaseModel):
     name: str
     stock: int
+    is_active: bool = True
 
 
 @app.patch("/api/retail/flavors/{flavor_id}")
@@ -1104,10 +1105,10 @@ async def api_update_retail_flavor(
         cursor = await db.execute(
             """
             UPDATE retail_flavors
-            SET name = ?, stock = ?
+            SET name = ?, stock = ?, is_active = ?
             WHERE id = ?
             """,
-            (name, data.stock, flavor_id),
+            (name, data.stock, int(data.is_active), flavor_id),
         )
 
         if cursor.rowcount == 0:
