@@ -238,10 +238,19 @@ async def init_db():
                 product_id INTEGER NOT NULL,
                 name TEXT NOT NULL,
                 stock INTEGER DEFAULT 0,
+                is_active INTEGER NOT NULL DEFAULT 1,
                 FOREIGN KEY (product_id)
                     REFERENCES retail_products(id)
             )
         """)
+
+        async with db.execute("PRAGMA table_info(retail_flavors)") as cursor:
+            columns = [row[1] for row in await cursor.fetchall()]
+
+        if "is_active" not in columns:
+            await db.execute(
+                "ALTER TABLE retail_flavors ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1"
+            )
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS retail_price_tiers (
