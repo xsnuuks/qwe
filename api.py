@@ -1702,11 +1702,6 @@ async def api_update_retail_order_status(
                     400, "Отменённый заказ нельзя восстановить"
                 )
 
-            if old_status == "done" and data.status == "cancelled":
-                raise HTTPException(
-                    400, "Завершённый заказ нельзя отменить"
-                )
-
             if data.status == "cancelled" and old_status != "cancelled":
                 cursor = await db.execute(
                     """
