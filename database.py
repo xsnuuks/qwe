@@ -214,6 +214,22 @@ async def init_db():
             )
         """)
 
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS wholesale_order_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                order_id INTEGER NOT NULL,
+                product_id INTEGER NOT NULL,
+                flavor_id INTEGER NOT NULL,
+                product_name TEXT NOT NULL,
+                flavor_name TEXT NOT NULL,
+                quantity INTEGER NOT NULL,
+                unit_price REAL NOT NULL,
+                line_total REAL NOT NULL,
+                FOREIGN KEY (order_id)
+                    REFERENCES wholesale_orders(id)
+            )
+        """)
+
 # === НОВАЯ РОЗНИЦА ===
 
         await db.execute("""
