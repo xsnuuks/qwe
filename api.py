@@ -962,6 +962,56 @@ async def api_get_retail_tiers(product_id: int):
     tiers = await get_retail_price_tiers(product_id)
     return {"tiers": tiers}
 
+class RetailFlavorCreateIn(BaseModel):
+    name: str
+    stock: int = 0
+
+
+@app.post("/api/retail/products/{product_id}/flavors")
+async def api_create_retail_flavor(
+    product_id: int,
+    data: RetailFlavorCreateIn,
+    x_telegram_init_data: Optional[str] = Header(None),
+):
+    user_id = verify_telegram_init_data(
+        x_telegram_init_data or ""
+    )
+
+    if user_id != int(ADMIN_ID):
+        raise HTTPException(403, "Доступ запрещён")
+
+    name = data.name.strip()
+
+    if not name:
+        raise HTTPException(400, "Введите название вкуса")
+
+    if data.stock < 0:
+        raise HTTPException(400, "Остаток не может быть отрицательным")
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            "SELECT id FROM retail_products WHERE id = ?",
+            (product_id,),
+        )
+        product = await cursor.fetchone()
+        await cursor.close()
+
+        if not product:
+            raise HTTPException(404, "Товар не найден")
+
+        cursor = await db.execute(
+            """
+            INSERT INTO retail_flavors (product_id, name, stock)
+            VALUES (?, ?, ?)
+            """,
+            (product_id, name, data.stock),
+        )
+
+        flavor_id = cursor.lastrowid
+        await db.commit()
+
+    return {"ok": True, "flavor_id": flavor_id}
+
 class RetailFlavorUpdateIn(BaseModel):
     name: str
     stock: int
