@@ -193,6 +193,27 @@ async def init_db():
             )
         """)
 
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS wholesale_orders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                first_name TEXT NOT NULL,
+                last_name TEXT NOT NULL,
+                phone TEXT NOT NULL,
+                email TEXT,
+                country TEXT NOT NULL,
+                city TEXT NOT NULL,
+                postal_code TEXT NOT NULL,
+                street TEXT NOT NULL,
+                house TEXT NOT NULL,
+                payment_method TEXT NOT NULL,
+                items_total REAL NOT NULL,
+                status TEXT NOT NULL DEFAULT 'new',
+                is_archived INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL
+            )
+        """)
+
 # === НОВАЯ РОЗНИЦА ===
 
         await db.execute("""
