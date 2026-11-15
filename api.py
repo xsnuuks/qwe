@@ -2346,6 +2346,38 @@ async def api_update_retail_order_status(
             await db.rollback()
             raise
 
+    # Уведомляем покупателя только при изменении статуса
+    if old_status != data.status and data.status in ("done", "cancelled"):
+        async with aiosqlite.connect(DB_PATH) as db:
+            cursor = await db.execute(
+                "SELECT user_id FROM retail_orders WHERE id = ?",
+                (order_id,),
+            )
+            buyer = await cursor.fetchone()
+            await cursor.close()
+
+        if buyer and bot:
+            buyer_id = int(buyer[0])
+
+            if data.status == "done":
+                message = (
+                    f"✅ Ваш заказ №{order_id} выполнен!\n\n"
+                    "Спасибо за заказ в Puffy Store!"
+                )
+            else:
+                message = (
+                    f"❌ Ваш заказ №{order_id} отменён.\n\n"
+                    "Для уточнения деталей свяжитесь с менеджером."
+                )
+
+            try:
+                await bot.send_message(
+                    chat_id=buyer_id,
+                    text=message,
+                )
+            except Exception:
+                pass
+
     return {"ok": True, "order_id": order_id, "status": data.status}
 
 @app.get("/api/retail/my-orders")
