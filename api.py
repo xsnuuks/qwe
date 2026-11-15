@@ -1469,14 +1469,28 @@ async def api_create_retail_order(
                     )
                 )
 
-                await db.execute(
-                    """
-                    UPDATE retail_flavors
-                    SET stock = stock - ?
-                    WHERE id = ?
-                    """,
-                    (item["quantity"], item["flavor_id"])
-                )
+                cursor = await db.execute(
+    """
+    UPDATE retail_flavors
+    SET stock = stock - ?
+    WHERE id = ?
+      AND is_active = 1
+      AND stock >= ?
+    """,
+    (
+        item["quantity"],
+        item["flavor_id"],
+        item["quantity"],
+    ),
+)
+
+if cursor.rowcount != 1:
+    raise ValueError(
+        "Один из вкусов скрыт или закончился. "
+        "Обновите корзину и попробуйте снова."
+    )
+
+await cursor.close()
 
             await db.execute(
                 """
