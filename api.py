@@ -2262,6 +2262,80 @@ async def api_create_retail_order(
             await db.rollback()
             raise
 
+    # Уведомление администратору после сохранения заказа
+    if bot and ADMIN_ID:
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+        buyer_username = get_telegram_username(
+            x_telegram_init_data or ""
+        )
+
+        order_time = datetime.now(
+            ZoneInfo("Europe/Berlin")
+        ).strftime("%d.%m.%Y %H:%M")
+
+        items_text = "\n".join(
+            f"• {item['product_name']} — {item['flavor_name']}\n"
+            f"  {item['quantity']} шт. × {item['unit_price']:.2f} €"
+            f" = {item['line_total']:.2f} €"
+            for item in prepared_items
+        )
+
+        if data.delivery_type == "pickup":
+            delivery_text = "Самовывоз по договорённости с менеджером"
+        else:
+            delivery_text = (
+                f"Доставка GLS\n"
+                f"Имя: {data.first_name}\n"
+                f"Фамилия: {data.last_name}\n"
+                f"Телефон: {data.phone}\n"
+                f"Email: {data.email}\n"
+                f"Страна: Германия\n"
+                f"Город: {data.city}\n"
+                f"Индекс: {data.postal_code}\n"
+                f"Улица: {data.street}\n"
+                f"Дом: {data.house}\n"
+                f"Квартира: {data.apartment or 'Не указана'}"
+            )
+
+        message = (
+            f"🛍 PUFFY STORE — Новый заказ №{order_id}\n\n"
+            f"📅 {order_time} (Германия)\n"
+            f"👤 Telegram ID: {verified_user_id}\n"
+            f"💬 Telegram: "
+            f"{('@' + buyer_username) if buyer_username else 'Не указан'}\n\n"
+            f"📦 ТОВАРЫ\n{items_text}\n\n"
+            f"🚚 ПОЛУЧЕНИЕ\n{delivery_text}\n\n"
+            f"💳 Оплата: {data.payment_method}\n"
+            f"💰 Сумма товаров: {float(total):.2f} €\n"
+            f"🚚 Стоимость доставки: рассчитывается отдельно\n"
+            f"📋 Статус: Новый"
+        )
+
+        reply_markup = None
+        if buyer_username:
+            reply_markup = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text="💬 Связаться с покупателем",
+                            url=f"https://t.me/{buyer_username}",
+                        )
+                    ]
+                ]
+            )
+
+        try:
+            await bot.send_message(
+                chat_id=ADMIN_ID,
+                text=message,
+                reply_markup=reply_markup,
+            )
+        except Exception:
+            pass
+
     return {
         "ok": True,
         "order_id": order_id,
