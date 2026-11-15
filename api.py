@@ -1476,6 +1476,7 @@ async def get_wholesale_order_price(
     product_id: int,
     total_quantity: int,
 ):
+    from decimal import Decimal
     cursor = await db.execute(
         """
         SELECT price
@@ -1497,7 +1498,7 @@ async def get_wholesale_order_price(
             detail="Для одного из товаров не найдена оптовая цена"
         )
 
-    return float(tier[0])
+    return Decimal(str(tier[0]))
 
 async def prepare_wholesale_order_items(
     db,
