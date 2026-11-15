@@ -1223,6 +1223,7 @@ class RetailProductUpdateIn(BaseModel):
     name: str
     description: str = ""
     is_visible: bool = True
+    photo_url: Optional[str] = None
 
 
 @app.patch("/api/retail/products/{product_id}")
@@ -1247,13 +1248,17 @@ async def api_update_retail_product(
         cursor = await db.execute(
             """
             UPDATE retail_products
-            SET name = ?, description = ?, is_visible = ?
+            SET name = ?,
+                description = ?,
+                is_visible = ?,
+                photo_url = COALESCE(?, photo_url)
             WHERE id = ?
             """,
             (
                 name,
                 data.description.strip(),
                 int(data.is_visible),
+                data.photo_url,
                 product_id,
             ),
         )
