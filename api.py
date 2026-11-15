@@ -1484,13 +1484,13 @@ async def api_create_retail_order(
     ),
 )
 
-if cursor.rowcount != 1:
-    raise ValueError(
-        "Один из вкусов скрыт или закончился. "
-        "Обновите корзину и попробуйте снова."
-    )
+                if cursor.rowcount != 1:
+                    raise ValueError(
+                        "Один из вкусов скрыт или закончился. "
+                        "Обновите корзину и попробуйте снова."
+                    )
 
-await cursor.close()
+                await cursor.close()
 
             await db.execute(
                 """
