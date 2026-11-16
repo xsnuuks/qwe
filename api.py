@@ -2104,6 +2104,9 @@ async def api_create_retail_order(
                     FROM retail_products p
                     JOIN retail_flavors f ON f.product_id = p.id
                     WHERE p.id = ? AND f.id = ?
+  AND p.is_archived = 0
+  AND f.is_archived = 0
+  AND f.is_active = 1
                     """,
                     (product_id, flavor_id)
                 )
@@ -2224,7 +2227,8 @@ async def api_create_retail_order(
     SET stock = stock - ?
     WHERE id = ?
       AND is_active = 1
-      AND stock >= ?
+AND is_archived = 0
+AND stock >= ?
     """,
     (
         item["quantity"],
