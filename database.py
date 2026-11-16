@@ -1343,7 +1343,7 @@ async def get_retail_flavors(product_id: int):
             """
             SELECT id, product_id, name, stock, is_active
             FROM retail_flavors
-            WHERE product_id = ?
+            WHERE product_id = ? AND is_archived = 0
             ORDER BY id
             """,
             (product_id,)
