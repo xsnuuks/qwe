@@ -1277,6 +1277,35 @@ async def api_update_retail_flavor(
         await db.commit()
 
     return {"ok": True, "flavor_id": flavor_id}
+
+@app.delete("/api/retail/products/{product_id}")
+async def api_archive_retail_product(
+    product_id: int,
+    x_telegram_init_data: Optional[str] = Header(None),
+):
+    user_id = verify_telegram_init_data(
+        x_telegram_init_data or ""
+    )
+
+    if user_id != int(ADMIN_ID):
+        raise HTTPException(403, "Доступ запрещён")
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            """
+            UPDATE retail_products
+            SET is_archived = 1, is_visible = 0
+            WHERE id = ? AND is_archived = 0
+            """,
+            (product_id,),
+        )
+
+        if cursor.rowcount == 0:
+            raise HTTPException(404, "Товар не найден")
+
+        await db.commit()
+
+    return {"ok": True, "product_id": product_id}
     
 class RetailProductUpdateIn(BaseModel):
     name: str
