@@ -1189,42 +1189,16 @@ async def api_delete_retail_flavor(
             await db.execute("BEGIN IMMEDIATE")
 
             cursor = await db.execute(
-                "SELECT stock FROM retail_flavors WHERE id = ?",
-                (flavor_id,),
-            )
-            flavor = await cursor.fetchone()
-            await cursor.close()
-
-            if not flavor:
-                raise HTTPException(404, "Вкус не найден")
-
-            if flavor[0] > 0:
-                raise HTTPException(
-                    409,
-                    "Сначала установите остаток вкуса на 0"
-                )
-
-            cursor = await db.execute(
                 """
-                SELECT COUNT(*)
-                FROM retail_order_items
-                WHERE flavor_id = ?
+                UPDATE retail_flavors
+                SET is_archived = 1, is_active = 0
+                WHERE id = ? AND is_archived = 0
                 """,
                 (flavor_id,),
             )
-            orders_count = (await cursor.fetchone())[0]
-            await cursor.close()
 
-            if orders_count > 0:
-                raise HTTPException(
-                    409,
-                    "Вкус есть в истории заказов. Удаление запрещено"
-                )
-
-            await db.execute(
-                "DELETE FROM retail_flavors WHERE id = ?",
-                (flavor_id,),
-            )
+            if cursor.rowcount == 0:
+                raise HTTPException(404, "Вкус не найден")
 
             await db.commit()
 
