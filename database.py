@@ -318,6 +318,12 @@ async def init_db():
                 "ALTER TABLE retail_flavors ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1"
             )
 
+        if "is_archived" not in columns:
+            await db.execute(
+                "ALTER TABLE retail_flavors "
+                "ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0"
+            )
+
         await db.execute("""
             CREATE TABLE IF NOT EXISTS retail_price_tiers (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
