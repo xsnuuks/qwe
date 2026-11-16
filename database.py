@@ -1213,8 +1213,10 @@ async def get_retail_products(category_id: int = None):
 
         params = []
 
+        query += " WHERE p.is_archived = 0"
+
         if category_id is not None:
-            query += " WHERE p.category_id = ?"
+            query += " AND p.category_id = ?"
             params.append(category_id)
 
         query += " ORDER BY p.sort_order ASC, p.id ASC"
