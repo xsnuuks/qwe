@@ -2467,6 +2467,10 @@ async def api_update_retail_order_status(
                     400, "Самовывоз нельзя отметить отправленным"
                 )
 
+            if old_status == "done" and data.status != "done":
+                raise HTTPException(
+                    400, "Завершённый заказ нельзя изменить"
+                )
             if old_status == "cancelled" and data.status != "cancelled":
                 raise HTTPException(
                     400, "Отменённый заказ нельзя восстановить"
