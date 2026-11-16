@@ -2130,7 +2130,7 @@ async def api_create_retail_order(
                     ORDER BY min_qty DESC
                     LIMIT 1
                     """,
-                    (product_id, product_totals[product_id])
+                    (product_id, sum(quantities.values()))
                 )
                 tier = await cursor.fetchone()
                 await cursor.close()
