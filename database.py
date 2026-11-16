@@ -288,6 +288,16 @@ async def init_db():
             )
         """)
 
+        async with db.execute(
+            "PRAGMA table_info(retail_products)"
+        ) as cursor:
+            columns = [row[1] for row in await cursor.fetchall()]
+
+        if "is_archived" not in columns:
+            await db.execute(
+                "ALTER TABLE retail_products ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0"
+            )
+            
         await db.execute("""
             CREATE TABLE IF NOT EXISTS retail_flavors (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
