@@ -1,5 +1,6 @@
 from aiogram.dispatcher.event.bases import SkipHandler
 from aiogram import Router, F, Bot
+from aiogram.types import FSInputFile
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove, WebAppInfo
 from aiogram.filters import CommandStart, CommandObject, StateFilter
 from aiogram.fsm.context import FSMContext
@@ -71,10 +72,19 @@ async def cmd_start(message: Message, command: CommandObject, bot: Bot, lang: st
             ]
         ]
     )
-    await message.answer(
-        "Добро пожаловать в PuffyStore!\n\n"
-        "Минимализм. Качество. Только проверенные товары.\n\n"
-        "Откройте мини-приложение, чтобы посмотреть каталог и оформить заказ.",
+    from pathlib import Path
+
+    photo = FSInputFile(
+        Path(__file__).resolve().parent.parent / "puffy_bot.png"
+    )
+
+    await message.answer_photo(
+        photo=photo,
+        caption=(
+            "Добро пожаловать в Puffy Store!\n\n"
+            "Откройте мини-приложение, чтобы посмотреть "
+            "каталог и оформить заказ."
+        ),
         reply_markup=kb,
     )
 
