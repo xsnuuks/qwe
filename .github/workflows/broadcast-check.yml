@@ -53,7 +53,7 @@ jobs:
           assert admin.format_broadcast_audience({
               "registered": 4, "blocked": 1, "opted_out": 1,
               "admin_excluded": 1, "eligible": 1
-          }, False).count("\\n") >= 6
+          }, False).count("\n") >= 6
 
           async def check_stats():
               with tempfile.TemporaryDirectory() as tmp:
