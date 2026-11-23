@@ -2,7 +2,7 @@ from aiogram.dispatcher.event.bases import SkipHandler
 from aiogram import Router, F, Bot
 from aiogram.types import FSInputFile
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove, WebAppInfo
-from aiogram.filters import CommandStart, CommandObject, StateFilter
+from aiogram.filters import CommandStart, CommandObject, StateFilter, Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
@@ -11,7 +11,7 @@ from database import (
     get_user, create_user, update_user_language, set_referrer,
     get_all_products, get_product, create_order, use_discount,
     add_to_cart, get_cart, remove_from_cart, update_cart_quantity,
-    clear_cart, get_cart_count, set_referrer_if_empty,
+    clear_cart, get_cart_count, set_referrer_if_empty, set_broadcast_opt_out,
 )
 from keyboards import (
     language_keyboard, main_menu_keyboard, catalog_keyboard,
@@ -33,6 +33,26 @@ class CheckoutState(StatesGroup):
 
 def is_admin(user_id: int) -> bool:
     return user_id == ADMIN_ID
+
+
+@router.callback_query(F.data == "broadcast_unsubscribe")
+async def broadcast_unsubscribe(callback: CallbackQuery):
+    await set_broadcast_opt_out(callback.from_user.id, True)
+    await callback.answer("Broadcasts disabled.", show_alert=True)
+    if callback.message and callback.message.reply_markup:
+        await callback.message.edit_reply_markup(reply_markup=None)
+
+
+@router.message(Command("unsubscribe"))
+async def unsubscribe_command(message: Message):
+    await set_broadcast_opt_out(message.from_user.id, True)
+    await message.answer("Broadcast notifications disabled. Send /subscribe to enable them again.")
+
+
+@router.message(Command("subscribe"))
+async def subscribe_command(message: Message):
+    await set_broadcast_opt_out(message.from_user.id, False)
+    await message.answer("Broadcast notifications enabled.")
 
 
 @router.message(CommandStart())
