@@ -493,7 +493,7 @@ async def confirm_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot
     )
 
 
-@router.message(BroadcastState.preview, IsAdmin())
+@router.message(BroadcastState.preview, IsAdmin(), ~F.text.startswith("/"))
 async def broadcast_preview_waiting(message: Message):
     await message.answer("Use the preview buttons to test, send or cancel.")
 
