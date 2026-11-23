@@ -314,20 +314,46 @@ async def admin_reply_to_user(message: Message, bot: Bot, lang: str):
         await message.answer(f"❌ Не удалось отправить: {e}")
 
 
-def broadcast_preview_keyboard(test_sent: bool = False):
+BROADCAST_STORE_URL = "https://mono-miniapp.vercel.app"
+
+
+def broadcast_delivery_markup(include_store_button: bool):
+    if not include_store_button:
+        return None
     builder = InlineKeyboardBuilder()
+    builder.row(InlineKeyboardButton(text="Open Store", url=BROADCAST_STORE_URL))
+    return builder.as_markup()
+
+
+def broadcast_preview_keyboard(test_sent: bool = False, include_store_button: bool = False):
+    builder = InlineKeyboardBuilder()
+    builder.row(InlineKeyboardButton(
+        text="Remove Store Button" if include_store_button else "Add Store Button",
+        callback_data="broadcast_toggle_button"
+    ))
     if test_sent:
-        builder.row(
-            InlineKeyboardButton(text="Send Broadcast", callback_data="broadcast_confirm")
+        builder.row(InlineKeyboardButton(text="Send Broadcast", callback_data="broadcast_confirm"))
+    else:
+        builder.row(InlineKeyboardButton(text="Send Test to Me", callback_data="broadcast_test"))
+    builder.row(InlineKeyboardButton(text="Cancel", callback_data="admin_cancel"))
+    return builder.as_markup()
+
+
+async def send_broadcast_copy(bot: Bot, user_id: int, data: dict):
+    markup = broadcast_delivery_markup(data.get("include_store_button", False))
+    if data.get("photo_id"):
+        await bot.send_photo(
+            chat_id=user_id,
+            photo=data["photo_id"],
+            caption=data.get("broadcast_text") or None,
+            reply_markup=markup,
         )
     else:
-        builder.row(
-            InlineKeyboardButton(text="Send Test to Me", callback_data="broadcast_test")
+        await bot.send_message(
+            chat_id=user_id,
+            text=data["broadcast_text"],
+            reply_markup=markup,
         )
-    builder.row(
-        InlineKeyboardButton(text="Cancel", callback_data="admin_cancel")
-    )
-    return builder.as_markup()
 
 
 @router.callback_query(F.data == "admin_broadcast", IsAdmin())
@@ -337,7 +363,7 @@ async def admin_broadcast_start(callback: CallbackQuery, state: FSMContext, lang
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text="Cancel", callback_data="admin_cancel"))
     await callback.message.edit_text(
-        "Send the broadcast message text:",
+        "Send text or a photo with a caption for your broadcast:",
         reply_markup=builder.as_markup()
     )
     await callback.answer()
@@ -345,38 +371,57 @@ async def admin_broadcast_start(callback: CallbackQuery, state: FSMContext, lang
 
 @router.message(BroadcastState.message, IsAdmin())
 async def process_broadcast(message: Message, state: FSMContext, bot: Bot, lang: str):
-    if not message.text or not message.text.strip():
-        await message.answer("Please send a text message.")
+    photo_id = message.photo[-1].file_id if message.photo else None
+    broadcast_text = message.html_text or ""
+    if not photo_id and not broadcast_text.strip():
+        await message.answer("Please send text or a photo with an optional caption.")
+        return
+    if photo_id and len(message.caption or "") > 1024:
+        await message.answer("Photo captions must be at most 1024 characters.")
         return
 
-    # Preserve Telegram formatting from the admin's message.
-    broadcast_text = message.html_text
-    await state.update_data(broadcast_text=broadcast_text, test_sent=False)
+    await state.update_data(
+        broadcast_text=broadcast_text, photo_id=photo_id,
+        include_store_button=False, test_sent=False
+    )
     await state.set_state(BroadcastState.preview)
     await message.answer("Broadcast preview (not sent to customers):")
-    await message.answer(
-        broadcast_text,
-        reply_markup=broadcast_preview_keyboard()
+    if photo_id:
+        await message.answer_photo(
+            photo_id, caption=broadcast_text or None,
+            reply_markup=broadcast_preview_keyboard()
+        )
+    else:
+        await message.answer(broadcast_text, reply_markup=broadcast_preview_keyboard())
+
+
+@router.callback_query(F.data == "broadcast_toggle_button", BroadcastState.preview, IsAdmin())
+async def broadcast_toggle_button(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    enabled = not data.get("include_store_button", False)
+    await state.update_data(include_store_button=enabled, test_sent=False)
+    await callback.message.edit_reply_markup(
+        reply_markup=broadcast_preview_keyboard(include_store_button=enabled)
     )
+    await callback.answer("Send a new test before confirming.")
 
 
 @router.callback_query(F.data == "broadcast_test", BroadcastState.preview, IsAdmin())
 async def test_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot):
     data = await state.get_data()
-    broadcast_text = data.get("broadcast_text")
-    if not broadcast_text:
+    if not data.get("broadcast_text") and not data.get("photo_id"):
         await callback.answer("No broadcast is ready.", show_alert=True)
         return
-
     try:
-        await bot.send_message(callback.from_user.id, broadcast_text)
+        await send_broadcast_copy(bot, callback.from_user.id, data)
     except Exception:
         await callback.answer("Test delivery failed. Try again.", show_alert=True)
         return
-
     await state.update_data(test_sent=True)
     await callback.message.edit_reply_markup(
-        reply_markup=broadcast_preview_keyboard(test_sent=True)
+        reply_markup=broadcast_preview_keyboard(
+            test_sent=True, include_store_button=data.get("include_store_button", False)
+        )
     )
     await callback.answer("Test delivered to your chat.")
 
@@ -384,12 +429,9 @@ async def test_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot):
 @router.callback_query(F.data == "broadcast_confirm", BroadcastState.preview, IsAdmin())
 async def confirm_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot):
     data = await state.get_data()
-    broadcast_text = data.get("broadcast_text")
-    if not broadcast_text or not data.get("test_sent"):
+    if (not data.get("broadcast_text") and not data.get("photo_id")) or not data.get("test_sent"):
         await callback.answer("Send a test message before broadcasting.", show_alert=True)
         return
-
-    # Clear state before delivery to prevent repeated sends on double-click.
     await state.clear()
     await callback.message.edit_reply_markup(reply_markup=None)
     await callback.answer("Broadcast started.")
@@ -400,7 +442,7 @@ async def confirm_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot
     for uid in user_ids:
         for attempt in range(3):
             try:
-                await bot.send_message(uid, broadcast_text)
+                await send_broadcast_copy(bot, uid, data)
                 success += 1
                 break
             except TelegramRetryAfter as exc:
@@ -411,9 +453,7 @@ async def confirm_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot
             except Exception:
                 fail += 1
                 break
-        # Keep requests well under Telegram's usual bulk-send rate limit.
         await asyncio.sleep(0.06)
-
     await callback.message.answer(
         f"Broadcast complete.\nDelivered: {success}\nFailed: {fail}",
         reply_markup=admin_menu_keyboard("en")
@@ -422,7 +462,7 @@ async def confirm_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot
 
 @router.message(BroadcastState.preview, IsAdmin())
 async def broadcast_preview_waiting(message: Message):
-    await message.answer("Use Send Test to Me or Cancel on the preview above.")
+    await message.answer("Use the preview buttons to test, send or cancel.")
 
 
 @router.callback_query(F.data == "admin_cancel", IsAdmin())
