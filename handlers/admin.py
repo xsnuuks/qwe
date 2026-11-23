@@ -334,15 +334,15 @@ def broadcast_recipient_ids(admin_id: int, user_ids: list[int], live_enabled: bo
 
 def format_broadcast_audience(stats: dict, live_enabled: bool) -> str:
     lines = [
-        "<b>Audience estimate</b>",
-        f"Registered: {stats['registered']}",
-        f"Excluded by admin: {stats['blocked']}",
-        f"Opted out: {stats['opted_out']}",
-        f"Admin excluded: {stats['admin_excluded']}",
-        f"Potential recipients: {stats['eligible']}",
+        "<b>Аудитория рассылки</b>",
+        f"Зарегистрировано: {stats['registered']}",
+        f"Заблокировано администратором: {stats['blocked']}",
+        f"Отказались от рассылки: {stats['opted_out']}",
+        f"Администратор исключён: {stats['admin_excluded']}",
+        f"Потенциальных получателей: {stats['eligible']}",
         "",
-        "Mode: LIVE (after confirmation)" if live_enabled else "Mode: ADMIN ONLY (customers will not be contacted)",
-        "Note: Actual delivery may be lower if users blocked the bot.",
+        "Режим: РАССЫЛКА КЛИЕНТАМ (после подтверждения)" if live_enabled else "Режим: ТОЛЬКО АДМИНИСТРАТОР (клиенты не получат сообщение)",
+        "Примечание: фактическая доставка может быть ниже, если пользователь заблокировал бота.",
     ]
     return "\n".join(lines)
 
@@ -350,9 +350,9 @@ def format_broadcast_audience(stats: dict, live_enabled: bool) -> str:
 def broadcast_delivery_markup(include_store_button: bool):
     builder = InlineKeyboardBuilder()
     if include_store_button:
-        builder.row(InlineKeyboardButton(text="Open Store", url=BROADCAST_STORE_URL))
+        builder.row(InlineKeyboardButton(text="Открыть магазин", url=BROADCAST_STORE_URL))
     builder.row(
-        InlineKeyboardButton(text="Unsubscribe", callback_data="broadcast_unsubscribe")
+        InlineKeyboardButton(text="Отписаться", callback_data="broadcast_unsubscribe")
     )
     return builder.as_markup()
 
@@ -360,15 +360,15 @@ def broadcast_delivery_markup(include_store_button: bool):
 def broadcast_preview_keyboard(test_sent: bool = False, include_store_button: bool = False):
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(
-        text="Remove Store Button" if include_store_button else "Add Store Button",
+        text="Убрать кнопку магазина" if include_store_button else "Добавить кнопку магазина",
         callback_data="broadcast_toggle_button"
     ))
     if test_sent:
-        builder.row(InlineKeyboardButton(text="Send Broadcast" if broadcast_live_enabled() else "Confirm Admin-Only Test",
+        builder.row(InlineKeyboardButton(text="Отправить рассылку" if broadcast_live_enabled() else "Подтвердить тест администратору",
             callback_data="broadcast_confirm"))
     else:
-        builder.row(InlineKeyboardButton(text="Send Test to Me", callback_data="broadcast_test"))
-    builder.row(InlineKeyboardButton(text="Cancel", callback_data="admin_cancel"))
+        builder.row(InlineKeyboardButton(text="Отправить тест себе", callback_data="broadcast_test"))
+    builder.row(InlineKeyboardButton(text="Отмена", callback_data="admin_cancel"))
     return builder.as_markup()
 
 
@@ -394,9 +394,9 @@ async def broadcast_command(message: Message, state: FSMContext):
     await state.clear()
     await state.set_state(BroadcastState.message)
     builder = InlineKeyboardBuilder()
-    builder.row(InlineKeyboardButton(text="Cancel", callback_data="admin_cancel"))
+    builder.row(InlineKeyboardButton(text="Отмена", callback_data="admin_cancel"))
     await message.answer(
-        "Send text or a photo with a caption for your broadcast:",
+        "Отправь текст рассылки или фотографию с подписью:",
         reply_markup=builder.as_markup()
     )
 
@@ -406,9 +406,9 @@ async def admin_broadcast_start(callback: CallbackQuery, state: FSMContext, lang
     await state.clear()
     await state.set_state(BroadcastState.message)
     builder = InlineKeyboardBuilder()
-    builder.row(InlineKeyboardButton(text="Cancel", callback_data="admin_cancel"))
+    builder.row(InlineKeyboardButton(text="Отмена", callback_data="admin_cancel"))
     await callback.message.edit_text(
-        "Send text or a photo with a caption for your broadcast:",
+        "Отправь текст рассылки или фотографию с подписью:",
         reply_markup=builder.as_markup()
     )
     await callback.answer()
@@ -419,10 +419,10 @@ async def process_broadcast(message: Message, state: FSMContext, bot: Bot, lang:
     photo_id = message.photo[-1].file_id if message.photo else None
     broadcast_text = message.html_text or ""
     if not photo_id and not broadcast_text.strip():
-        await message.answer("Please send text or a photo with an optional caption.")
+        await message.answer("Отправь текст или фотографию с необязательной подписью.")
         return
     if photo_id and len(message.caption or "") > 1024:
-        await message.answer("Photo captions must be at most 1024 characters.")
+        await message.answer("Подпись к фотографии не должна превышать 1024 символа.")
         return
 
     await state.update_data(
@@ -432,7 +432,7 @@ async def process_broadcast(message: Message, state: FSMContext, bot: Bot, lang:
     await state.set_state(BroadcastState.preview)
     stats = await get_broadcast_audience_stats(ADMIN_ID)
     await message.answer(format_broadcast_audience(stats, broadcast_live_enabled()))
-    await message.answer("Broadcast preview (not sent to customers):")
+    await message.answer("Предпросмотр рассылки (клиентам не отправлено):")
     if photo_id:
         await message.answer_photo(
             photo_id, caption=broadcast_text or None,
@@ -450,19 +450,19 @@ async def broadcast_toggle_button(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_reply_markup(
         reply_markup=broadcast_preview_keyboard(include_store_button=enabled)
     )
-    await callback.answer("Send a new test before confirming.")
+    await callback.answer("Перед подтверждением отправь новый тест.")
 
 
 @router.callback_query(F.data == "broadcast_test", BroadcastState.preview, IsAdmin())
 async def test_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot):
     data = await state.get_data()
     if not data.get("broadcast_text") and not data.get("photo_id"):
-        await callback.answer("No broadcast is ready.", show_alert=True)
+        await callback.answer("Рассылка ещё не подготовлена.", show_alert=True)
         return
     try:
         await send_broadcast_copy(bot, callback.from_user.id, data)
     except Exception:
-        await callback.answer("Test delivery failed. Try again.", show_alert=True)
+        await callback.answer("Не удалось отправить тест. Попробуй ещё раз.", show_alert=True)
         return
     await state.update_data(test_sent=True)
     await callback.message.edit_reply_markup(
@@ -470,14 +470,14 @@ async def test_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot):
             test_sent=True, include_store_button=data.get("include_store_button", False)
         )
     )
-    await callback.answer("Test delivered to your chat.")
+    await callback.answer("Тестовое сообщение отправлено тебе в чат.")
 
 
 @router.callback_query(F.data == "broadcast_confirm", BroadcastState.preview, IsAdmin())
 async def review_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot):
     data = await state.get_data()
     if (not data.get("broadcast_text") and not data.get("photo_id")) or not data.get("test_sent"):
-        await callback.answer("Send a test message before broadcasting.", show_alert=True)
+        await callback.answer("Перед рассылкой отправь тестовое сообщение.", show_alert=True)
         return
 
     if broadcast_live_enabled():
@@ -486,15 +486,15 @@ async def review_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot)
         await state.set_state(BroadcastState.final_confirmation)
         builder = InlineKeyboardBuilder()
         builder.row(InlineKeyboardButton(
-            text=f"Send to {stats['eligible']} recipients", callback_data="broadcast_send_final"
+            text=f"Отправить получателям: {stats['eligible']}", callback_data="broadcast_send_final"
         ))
-        builder.row(InlineKeyboardButton(text="Cancel", callback_data="admin_cancel"))
+        builder.row(InlineKeyboardButton(text="Отмена", callback_data="admin_cancel"))
         await callback.message.edit_reply_markup(reply_markup=None)
         await callback.message.answer(
-            f"<b>Final confirmation</b>\n"
-            f"Potential recipients: {stats['eligible']}\n"
-            "This message will be sent to customers. "
-            "Some users may not receive it if they blocked the bot.",
+            f"<b>Последнее подтверждение</b>\n"
+            f"Потенциальных получателей: {stats['eligible']}\n"
+            "Это сообщение будет отправлено клиентам. "
+            "Некоторые пользователи могут не получить его, если заблокировали бота.",
             reply_markup=builder.as_markup()
         )
         await callback.answer()
@@ -506,14 +506,14 @@ async def review_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot)
 @router.callback_query(F.data == "broadcast_send_final", BroadcastState.final_confirmation, IsAdmin())
 async def final_broadcast_confirmation(callback: CallbackQuery, state: FSMContext, bot: Bot):
     if not broadcast_live_enabled():
-        await callback.answer("Live mode is off. Broadcast cancelled.", show_alert=True)
+        await callback.answer("Массовая отправка выключена. Рассылка отменена.", show_alert=True)
         await state.clear()
         await callback.message.edit_reply_markup(reply_markup=None)
         return
 
     data = await state.get_data()
     if not data.get("test_sent") or not (data.get("broadcast_text") or data.get("photo_id")):
-        await callback.answer("Draft is no longer valid.", show_alert=True)
+        await callback.answer("Черновик больше не действителен.", show_alert=True)
         return
     await execute_broadcast(callback, state, bot, allow_live=True)
 
@@ -527,7 +527,7 @@ async def execute_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot
 
     await state.clear()
     await callback.message.edit_reply_markup(reply_markup=None)
-    await callback.answer("Broadcast started." if live_enabled else "Admin-only test started.")
+    await callback.answer("Рассылка запущена." if live_enabled else "Запущен тест только для администратора.")
 
     success = 0
     fail = 0
@@ -547,20 +547,20 @@ async def execute_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot
                 break
         await asyncio.sleep(0.06)
     await callback.message.answer(
-        f"{'Broadcast complete' if live_enabled else 'Admin-only test complete'}.\n"
-        f"Delivered: {success}\nFailed: {fail}",
-        reply_markup=admin_menu_keyboard("en")
+        f"{'Рассылка завершена' if live_enabled else 'Тест для администратора завершён'}.\n"
+        f"Успешно отправлено: {success}\nНе удалось отправить: {fail}",
+        reply_markup=admin_menu_keyboard("ru")
     )
 
 
 @router.message(BroadcastState.final_confirmation, IsAdmin(), ~F.text.startswith("/"))
 async def broadcast_final_waiting(message: Message):
-    await message.answer("Use Send to recipients or Cancel on the confirmation above.")
+    await message.answer("Нажми кнопку отправки получателям или «Отмена» в подтверждении выше.")
 
 
 @router.message(BroadcastState.preview, IsAdmin(), ~F.text.startswith("/"))
 async def broadcast_preview_waiting(message: Message):
-    await message.answer("Use the preview buttons to test, send or cancel.")
+    await message.answer("Используй кнопки под предпросмотром для теста, отправки или отмены.")
 
 
 @router.callback_query(F.data == "admin_cancel", IsAdmin())
