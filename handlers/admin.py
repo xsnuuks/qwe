@@ -312,13 +312,31 @@ async def admin_reply_to_user(message: Message, bot: Bot, lang: str):
         await message.answer(f"❌ Не удалось отправить: {e}")
 
 
+def broadcast_preview_keyboard(test_sent: bool = False):
+    builder = InlineKeyboardBuilder()
+    if test_sent:
+        builder.row(
+            InlineKeyboardButton(text="Send Broadcast", callback_data="broadcast_confirm")
+        )
+    else:
+        builder.row(
+            InlineKeyboardButton(text="Send Test to Me", callback_data="broadcast_test")
+        )
+    builder.row(
+        InlineKeyboardButton(text="Cancel", callback_data="admin_cancel")
+    )
+    return builder.as_markup()
+
+
 @router.callback_query(F.data == "admin_broadcast", IsAdmin())
 async def admin_broadcast_start(callback: CallbackQuery, state: FSMContext, lang: str):
     await state.clear()
     await state.set_state(BroadcastState.message)
+    builder = InlineKeyboardBuilder()
+    builder.row(InlineKeyboardButton(text="Cancel", callback_data="admin_cancel"))
     await callback.message.edit_text(
         "Send the broadcast message text:",
-        reply_markup=cancel_keyboard()
+        reply_markup=builder.as_markup()
     )
     await callback.answer()
 
@@ -329,28 +347,44 @@ async def process_broadcast(message: Message, state: FSMContext, bot: Bot, lang:
         await message.answer("Please send a text message.")
         return
 
-    # Preserve Telegram formatting (bold, italic, links) from the admin's message.
+    # Preserve Telegram formatting from the admin's message.
     broadcast_text = message.html_text
-    await state.update_data(broadcast_text=broadcast_text)
+    await state.update_data(broadcast_text=broadcast_text, test_sent=False)
     await state.set_state(BroadcastState.preview)
+    await message.answer("Broadcast preview (not sent to customers):")
+    await message.answer(
+        broadcast_text,
+        reply_markup=broadcast_preview_keyboard()
+    )
 
-    builder = InlineKeyboardBuilder()
-    builder.row(
-        InlineKeyboardButton(text="Send Broadcast", callback_data="broadcast_confirm")
+
+@router.callback_query(F.data == "broadcast_test", BroadcastState.preview, IsAdmin())
+async def test_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot):
+    data = await state.get_data()
+    broadcast_text = data.get("broadcast_text")
+    if not broadcast_text:
+        await callback.answer("No broadcast is ready.", show_alert=True)
+        return
+
+    try:
+        await bot.send_message(callback.from_user.id, broadcast_text)
+    except Exception:
+        await callback.answer("Test delivery failed. Try again.", show_alert=True)
+        return
+
+    await state.update_data(test_sent=True)
+    await callback.message.edit_reply_markup(
+        reply_markup=broadcast_preview_keyboard(test_sent=True)
     )
-    builder.row(
-        InlineKeyboardButton(text="Cancel", callback_data="admin_cancel")
-    )
-    await message.answer("Broadcast preview:")
-    await message.answer(broadcast_text, reply_markup=builder.as_markup())
+    await callback.answer("Test delivered to your chat.")
 
 
 @router.callback_query(F.data == "broadcast_confirm", BroadcastState.preview, IsAdmin())
 async def confirm_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot):
     data = await state.get_data()
     broadcast_text = data.get("broadcast_text")
-    if not broadcast_text:
-        await callback.answer("No broadcast is ready.", show_alert=True)
+    if not broadcast_text or not data.get("test_sent"):
+        await callback.answer("Send a test message before broadcasting.", show_alert=True)
         return
 
     # Clear state before delivery to prevent repeated sends on double-click.
@@ -369,14 +403,14 @@ async def confirm_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot
             fail += 1
 
     await callback.message.answer(
-        f"Broadcast complete.\nDelivered: {success}\nFailed: {fail}",
+        f"Broadcast complete.\\nDelivered: {success}\\nFailed: {fail}",
         reply_markup=admin_menu_keyboard("en")
     )
 
 
 @router.message(BroadcastState.preview, IsAdmin())
 async def broadcast_preview_waiting(message: Message):
-    await message.answer("Use Send Broadcast or Cancel on the preview above.")
+    await message.answer("Use Send Test to Me or Cancel on the preview above.")
 
 
 @router.callback_query(F.data == "admin_cancel", IsAdmin())
