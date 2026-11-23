@@ -1,0 +1,39 @@
+name: Broadcast branch checks
+
+on:
+  push:
+    branches:
+      - feature/broadcast-v2
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  syntax-and-imports:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile Python files
+        run: python -m compileall -q .
+      - name: Install requirements
+        run: python -m pip install -r requirements.txt
+      - name: Import bot handlers without running Telegram bot
+        env:
+          BOT_TOKEN: '123456:TEST_TOKEN'
+          ADMIN_ID: '12345'
+        run: |
+          python - <<'PY'
+          from handlers import admin, user
+          assert admin.router is not None
+          assert user.router is not None
+          assert hasattr(admin, "broadcast_command")
+          assert hasattr(admin, "send_broadcast_copy")
+          assert hasattr(user, "broadcast_unsubscribe")
+          print("Handler imports and broadcast entry points OK")
+          PY
