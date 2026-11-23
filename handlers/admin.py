@@ -1,6 +1,7 @@
 # fix import
 from aiogram import Router, F, Bot
 import asyncio
+import os
 from aiogram.exceptions import TelegramRetryAfter
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
@@ -317,6 +318,19 @@ async def admin_reply_to_user(message: Message, bot: Bot, lang: str):
 BROADCAST_STORE_URL = "https://mono-miniapp.vercel.app"
 
 
+def broadcast_live_enabled() -> bool:
+    # Mass delivery is locked unless explicitly enabled in the deployment environment.
+    return os.getenv("BROADCAST_LIVE_ENABLED", "").strip().lower() == "true"
+
+
+def broadcast_recipient_ids(admin_id: int, user_ids: list[int], live_enabled: bool) -> list[int]:
+    # Fail closed: test mode must never use the customer list.
+    if not live_enabled:
+        return [admin_id]
+    return [user_id for user_id in user_ids if user_id != admin_id]
+
+
+
 def broadcast_delivery_markup(include_store_button: bool):
     builder = InlineKeyboardBuilder()
     if include_store_button:
@@ -334,7 +348,8 @@ def broadcast_preview_keyboard(test_sent: bool = False, include_store_button: bo
         callback_data="broadcast_toggle_button"
     ))
     if test_sent:
-        builder.row(InlineKeyboardButton(text="Send Broadcast", callback_data="broadcast_confirm"))
+        builder.row(InlineKeyboardButton(text="Send Broadcast" if broadcast_live_enabled() else "Confirm Admin-Only Test",
+            callback_data="broadcast_confirm"))
     else:
         builder.row(InlineKeyboardButton(text="Send Test to Me", callback_data="broadcast_test"))
     builder.row(InlineKeyboardButton(text="Cancel", callback_data="admin_cancel"))
@@ -446,14 +461,18 @@ async def confirm_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot
     if (not data.get("broadcast_text") and not data.get("photo_id")) or not data.get("test_sent"):
         await callback.answer("Send a test message before broadcasting.", show_alert=True)
         return
+    live_enabled = broadcast_live_enabled()
+    # Never fetch the customer list in test mode.
+    user_ids = await get_all_user_ids() if live_enabled else []
+    recipients = broadcast_recipient_ids(ADMIN_ID, user_ids, live_enabled)
+
     await state.clear()
     await callback.message.edit_reply_markup(reply_markup=None)
-    await callback.answer("Broadcast started.")
+    await callback.answer("Broadcast started." if live_enabled else "Admin-only test started.")
 
-    user_ids = await get_all_user_ids()
     success = 0
     fail = 0
-    for uid in user_ids:
+    for uid in recipients:
         for attempt in range(3):
             try:
                 await send_broadcast_copy(bot, uid, data)
@@ -469,7 +488,7 @@ async def confirm_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot
                 break
         await asyncio.sleep(0.06)
     await callback.message.answer(
-        f"Broadcast complete.\nDelivered: {success}\nFailed: {fail}",
+        f"{'Broadcast complete' if live_enabled else 'Admin-only test complete'}.\nDelivered: {success}\nFailed: {fail}",
         reply_markup=admin_menu_keyboard("en")
     )
 
