@@ -54,6 +54,11 @@ async def init_db():
         except Exception:
             pass
         try:
+            await db.execute("ALTER TABLE users ADD COLUMN broadcast_opt_out INTEGER DEFAULT 0")
+        except aiosqlite.OperationalError as exc:
+            if "duplicate column name" not in str(exc).lower():
+                raise
+        try:
             await db.execute("ALTER TABLE orders ADD COLUMN city TEXT")
         except Exception:
             pass
@@ -639,9 +644,18 @@ async def get_stats_period(period: str = "all") -> dict:
         return {"orders": orders, "revenue": revenue}
 
 
+async def set_broadcast_opt_out(user_id: int, opted_out: bool) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE users SET broadcast_opt_out = ? WHERE user_id = ?",
+            (int(opted_out), user_id)
+        )
+        await db.commit()
+
+
 async def get_all_user_ids() -> List[int]:
     async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute("SELECT user_id FROM users WHERE is_blocked = 0") as cursor:
+        async with db.execute("SELECT user_id FROM users WHERE is_blocked = 0 AND COALESCE(broadcast_opt_out, 0) = 0") as cursor:
             rows = await cursor.fetchall()
             return [row[0] for row in rows]
 
