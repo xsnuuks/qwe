@@ -35,5 +35,14 @@ jobs:
           assert hasattr(admin, "broadcast_command")
           assert hasattr(admin, "send_broadcast_copy")
           assert hasattr(user, "broadcast_unsubscribe")
+          from unittest.mock import patch
+          with patch.dict("os.environ", {}, clear=True):
+              assert admin.broadcast_live_enabled() is False
+          with patch.dict("os.environ", {"BROADCAST_LIVE_ENABLED": "false"}):
+              assert admin.broadcast_live_enabled() is False
+          with patch.dict("os.environ", {"BROADCAST_LIVE_ENABLED": "true"}):
+              assert admin.broadcast_live_enabled() is True
+          assert admin.broadcast_recipient_ids(12345, [1, 2, 3], False) == [12345]
+          assert admin.broadcast_recipient_ids(12345, [12345, 1, 2], True) == [1, 2]
           print("Handler imports and broadcast entry points OK")
           PY
