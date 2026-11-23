@@ -42,6 +42,9 @@ class AddReferralState(StatesGroup):
     user_id = State()
 class BroadcastState(StatesGroup):
     message = State()
+    preview = State()
+
+
 class WriteUserState(StatesGroup):
     message = State()
 
@@ -311,37 +314,70 @@ async def admin_reply_to_user(message: Message, bot: Bot, lang: str):
 
 @router.callback_query(F.data == "admin_broadcast", IsAdmin())
 async def admin_broadcast_start(callback: CallbackQuery, state: FSMContext, lang: str):
-    await callback.message.edit_text(
-    "Введите текст рассылки:",
-    reply_markup=cancel_keyboard()
-)
+    await state.clear()
     await state.set_state(BroadcastState.message)
+    await callback.message.edit_text(
+        "Send the broadcast message text:",
+        reply_markup=cancel_keyboard()
+    )
     await callback.answer()
 
 
 @router.message(BroadcastState.message, IsAdmin())
 async def process_broadcast(message: Message, state: FSMContext, bot: Bot, lang: str):
-    text = message.text
-    if not text:
-        await message.answer("Нужен текст")
+    if not message.text or not message.text.strip():
+        await message.answer("Please send a text message.")
         return
+
+    # Preserve Telegram formatting (bold, italic, links) from the admin's message.
+    broadcast_text = message.html_text
+    await state.update_data(broadcast_text=broadcast_text)
+    await state.set_state(BroadcastState.preview)
+
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="Send Broadcast", callback_data="broadcast_confirm")
+    )
+    builder.row(
+        InlineKeyboardButton(text="Cancel", callback_data="admin_cancel")
+    )
+    await message.answer("Broadcast preview:")
+    await message.answer(broadcast_text, reply_markup=builder.as_markup())
+
+
+@router.callback_query(F.data == "broadcast_confirm", BroadcastState.preview, IsAdmin())
+async def confirm_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot):
+    data = await state.get_data()
+    broadcast_text = data.get("broadcast_text")
+    if not broadcast_text:
+        await callback.answer("No broadcast is ready.", show_alert=True)
+        return
+
+    # Clear state before delivery to prevent repeated sends on double-click.
+    await state.clear()
+    await callback.message.edit_reply_markup(reply_markup=None)
+    await callback.answer("Broadcast started.")
 
     user_ids = await get_all_user_ids()
     success = 0
     fail = 0
-
     for uid in user_ids:
         try:
-            await bot.send_message(uid, text)
+            await bot.send_message(uid, broadcast_text)
             success += 1
         except Exception:
             fail += 1
 
-    await state.clear()
-    await message.answer(
-        f"✅ Рассылка завершена\nУспешно: {success}\nНе доставлено: {fail}",
-        reply_markup=main_menu_keyboard(lang, is_admin=True)
+    await callback.message.answer(
+        f"Broadcast complete.\nDelivered: {success}\nFailed: {fail}",
+        reply_markup=admin_menu_keyboard("en")
     )
+
+
+@router.message(BroadcastState.preview, IsAdmin())
+async def broadcast_preview_waiting(message: Message):
+    await message.answer("Use Send Broadcast or Cancel on the preview above.")
+
 
 @router.callback_query(F.data == "admin_cancel", IsAdmin())
 async def admin_cancel_cb(callback: CallbackQuery, state: FSMContext, lang: str):
@@ -350,7 +386,7 @@ async def admin_cancel_cb(callback: CallbackQuery, state: FSMContext, lang: str)
         get_text(lang, "admin_menu"),
         reply_markup=admin_menu_keyboard(lang)
     )
-    await callback.answer("Отменено")
+    await callback.answer("Cancelled")
 
 
 @router.callback_query(F.data == "admin_users", IsAdmin())
