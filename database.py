@@ -653,6 +653,41 @@ async def set_broadcast_opt_out(user_id: int, opted_out: bool) -> None:
         await db.commit()
 
 
+async def get_broadcast_audience_stats(admin_id: int) -> Dict[str, int]:
+    """Count stored users and eligible recipients without exposing user identities.
+
+    An eligible user may still have blocked the Telegram bot; actual delivery
+    is known only after a send attempt.
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            """
+            SELECT
+                COUNT(*) AS registered,
+                COALESCE(SUM(CASE WHEN COALESCE(is_blocked, 0) != 0
+                                  THEN 1 ELSE 0 END), 0) AS blocked,
+                COALESCE(SUM(CASE WHEN COALESCE(is_blocked, 0) = 0
+                                       AND COALESCE(broadcast_opt_out, 0) != 0
+                                  THEN 1 ELSE 0 END), 0) AS opted_out,
+                COALESCE(SUM(CASE WHEN COALESCE(is_blocked, 0) = 0
+                                       AND COALESCE(broadcast_opt_out, 0) = 0
+                                       AND user_id = ?
+                                  THEN 1 ELSE 0 END), 0) AS admin_excluded,
+                COALESCE(SUM(CASE WHEN COALESCE(is_blocked, 0) = 0
+                                       AND COALESCE(broadcast_opt_out, 0) = 0
+                                       AND user_id != ?
+                                  THEN 1 ELSE 0 END), 0) AS eligible
+            FROM users
+            """,
+            (admin_id, admin_id),
+        ) as cursor:
+            row = await cursor.fetchone()
+    return dict(zip(
+        ("registered", "blocked", "opted_out", "admin_excluded", "eligible"),
+        (int(value or 0) for value in row),
+    ))
+
+
 async def get_all_user_ids() -> List[int]:
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute("SELECT user_id FROM users WHERE is_blocked = 0 AND COALESCE(broadcast_opt_out, 0) = 0") as cursor:
