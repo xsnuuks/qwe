@@ -56,6 +56,8 @@ from database import (
 )
 
 app = FastAPI()
+from banners import router as banners_router
+app.include_router(banners_router)
 def require_admin(x_admin_id: Optional[str] = None):
     if not x_admin_id:
         raise HTTPException(status_code=403, detail="Forbidden")
