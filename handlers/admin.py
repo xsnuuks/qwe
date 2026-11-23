@@ -318,10 +318,12 @@ BROADCAST_STORE_URL = "https://mono-miniapp.vercel.app"
 
 
 def broadcast_delivery_markup(include_store_button: bool):
-    if not include_store_button:
-        return None
     builder = InlineKeyboardBuilder()
-    builder.row(InlineKeyboardButton(text="Open Store", url=BROADCAST_STORE_URL))
+    if include_store_button:
+        builder.row(InlineKeyboardButton(text="Open Store", url=BROADCAST_STORE_URL))
+    builder.row(
+        InlineKeyboardButton(text="Unsubscribe", callback_data="broadcast_unsubscribe")
+    )
     return builder.as_markup()
 
 
