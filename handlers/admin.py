@@ -14,7 +14,7 @@ from config import ADMIN_ID
 from database import (
     get_stats, get_pending_orders, complete_order, get_all_products,
     add_product, get_user, increment_referrals, get_product, update_product,
-    get_all_user_ids, get_users_page, get_users_count, set_user_blocked
+    get_all_user_ids, get_broadcast_audience_stats, get_users_page, get_users_count, set_user_blocked
 )
 from keyboards import (
     admin_menu_keyboard, products_admin_keyboard,
@@ -331,6 +331,21 @@ def broadcast_recipient_ids(admin_id: int, user_ids: list[int], live_enabled: bo
 
 
 
+def format_broadcast_audience(stats: dict, live_enabled: bool) -> str:
+    lines = [
+        "<b>Audience estimate</b>",
+        f"Registered: {stats['registered']}",
+        f"Excluded by admin: {stats['blocked']}",
+        f"Opted out: {stats['opted_out']}",
+        f"Admin excluded: {stats['admin_excluded']}",
+        f"Potential recipients: {stats['eligible']}",
+        "",
+        "Mode: LIVE (after confirmation)" if live_enabled else "Mode: ADMIN ONLY (customers will not be contacted)",
+        "Note: Actual delivery may be lower if users blocked the bot.",
+    ]
+    return "\\n".join(lines)
+
+
 def broadcast_delivery_markup(include_store_button: bool):
     builder = InlineKeyboardBuilder()
     if include_store_button:
@@ -414,6 +429,8 @@ async def process_broadcast(message: Message, state: FSMContext, bot: Bot, lang:
         include_store_button=False, test_sent=False
     )
     await state.set_state(BroadcastState.preview)
+    stats = await get_broadcast_audience_stats(ADMIN_ID)
+    await message.answer(format_broadcast_audience(stats, broadcast_live_enabled()))
     await message.answer("Broadcast preview (not sent to customers):")
     if photo_id:
         await message.answer_photo(
@@ -462,6 +479,12 @@ async def confirm_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot
         await callback.answer("Send a test message before broadcasting.", show_alert=True)
         return
     live_enabled = broadcast_live_enabled()
+    if live_enabled:
+        stats = await get_broadcast_audience_stats(ADMIN_ID)
+        await callback.message.answer(
+            f"Final audience check: {stats['eligible']} potential recipients. "
+            "Telegram delivery is not guaranteed."
+        )
     # Never fetch the customer list in test mode.
     user_ids = await get_all_user_ids() if live_enabled else []
     recipients = broadcast_recipient_ids(ADMIN_ID, user_ids, live_enabled)
