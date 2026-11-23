@@ -1,5 +1,7 @@
 # fix import
 from aiogram import Router, F, Bot
+import asyncio
+from aiogram.exceptions import TelegramRetryAfter
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -396,11 +398,21 @@ async def confirm_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot
     success = 0
     fail = 0
     for uid in user_ids:
-        try:
-            await bot.send_message(uid, broadcast_text)
-            success += 1
-        except Exception:
-            fail += 1
+        for attempt in range(3):
+            try:
+                await bot.send_message(uid, broadcast_text)
+                success += 1
+                break
+            except TelegramRetryAfter as exc:
+                if attempt == 2:
+                    fail += 1
+                else:
+                    await asyncio.sleep(exc.retry_after + 1)
+            except Exception:
+                fail += 1
+                break
+        # Keep requests well under Telegram's usual bulk-send rate limit.
+        await asyncio.sleep(0.06)
 
     await callback.message.answer(
         f"Broadcast complete.\nDelivered: {success}\nFailed: {fail}",
