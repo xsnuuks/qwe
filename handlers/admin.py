@@ -46,6 +46,7 @@ class AddReferralState(StatesGroup):
 class BroadcastState(StatesGroup):
     message = State()
     preview = State()
+    final_confirmation = State()
 
 
 class WriteUserState(StatesGroup):
@@ -473,19 +474,54 @@ async def test_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot):
 
 
 @router.callback_query(F.data == "broadcast_confirm", BroadcastState.preview, IsAdmin())
-async def confirm_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot):
+async def review_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot):
     data = await state.get_data()
     if (not data.get("broadcast_text") and not data.get("photo_id")) or not data.get("test_sent"):
         await callback.answer("Send a test message before broadcasting.", show_alert=True)
         return
-    live_enabled = broadcast_live_enabled()
-    if live_enabled:
+
+    if broadcast_live_enabled():
         stats = await get_broadcast_audience_stats(ADMIN_ID)
+        await state.update_data(live_approved=False)
+        await state.set_state(BroadcastState.final_confirmation)
+        builder = InlineKeyboardBuilder()
+        builder.row(InlineKeyboardButton(
+            text=f"Send to {stats['eligible']} recipients", callback_data="broadcast_send_final"
+        ))
+        builder.row(InlineKeyboardButton(text="Cancel", callback_data="admin_cancel"))
+        await callback.message.edit_reply_markup(reply_markup=None)
         await callback.message.answer(
-            f"Final audience check: {stats['eligible']} potential recipients. "
-            "Telegram delivery is not guaranteed."
+            f"<b>Final confirmation</b>\n"
+            f"Potential recipients: {stats['eligible']}\n"
+            "This message will be sent to customers. "
+            "Some users may not receive it if they blocked the bot.",
+            reply_markup=builder.as_markup()
         )
-    # Never fetch the customer list in test mode.
+        await callback.answer()
+        return
+
+    await execute_broadcast(callback, state, bot, allow_live=False)
+
+
+@router.callback_query(F.data == "broadcast_send_final", BroadcastState.final_confirmation, IsAdmin())
+async def final_broadcast_confirmation(callback: CallbackQuery, state: FSMContext, bot: Bot):
+    if not broadcast_live_enabled():
+        await callback.answer("Live mode is off. Broadcast cancelled.", show_alert=True)
+        await state.clear()
+        await callback.message.edit_reply_markup(reply_markup=None)
+        return
+
+    data = await state.get_data()
+    if not data.get("test_sent") or not (data.get("broadcast_text") or data.get("photo_id")):
+        await callback.answer("Draft is no longer valid.", show_alert=True)
+        return
+    await execute_broadcast(callback, state, bot, allow_live=True)
+
+
+async def execute_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot, allow_live: bool):
+    data = await state.get_data()
+    live_enabled = allow_live and broadcast_live_enabled()
+    # An admin-only test cannot access the customer list, regardless of button state.
     user_ids = await get_all_user_ids() if live_enabled else []
     recipients = broadcast_recipient_ids(ADMIN_ID, user_ids, live_enabled)
 
@@ -511,9 +547,15 @@ async def confirm_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot
                 break
         await asyncio.sleep(0.06)
     await callback.message.answer(
-        f"{'Broadcast complete' if live_enabled else 'Admin-only test complete'}.\nDelivered: {success}\nFailed: {fail}",
+        f"{'Broadcast complete' if live_enabled else 'Admin-only test complete'}.\n"
+        f"Delivered: {success}\nFailed: {fail}",
         reply_markup=admin_menu_keyboard("en")
     )
+
+
+@router.message(BroadcastState.final_confirmation, IsAdmin(), ~F.text.startswith("/"))
+async def broadcast_final_waiting(message: Message):
+    await message.answer("Use Send to recipients or Cancel on the confirmation above.")
 
 
 @router.message(BroadcastState.preview, IsAdmin(), ~F.text.startswith("/"))
