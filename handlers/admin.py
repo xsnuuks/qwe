@@ -403,7 +403,7 @@ async def confirm_broadcast(callback: CallbackQuery, state: FSMContext, bot: Bot
             fail += 1
 
     await callback.message.answer(
-        f"Broadcast complete.\\nDelivered: {success}\\nFailed: {fail}",
+        f"Broadcast complete.\nDelivered: {success}\nFailed: {fail}",
         reply_markup=admin_menu_keyboard("en")
     )
 
