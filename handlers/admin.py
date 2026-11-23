@@ -343,7 +343,7 @@ def format_broadcast_audience(stats: dict, live_enabled: bool) -> str:
         "Mode: LIVE (after confirmation)" if live_enabled else "Mode: ADMIN ONLY (customers will not be contacted)",
         "Note: Actual delivery may be lower if users blocked the bot.",
     ]
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def broadcast_delivery_markup(include_store_button: bool):
