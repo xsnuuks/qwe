@@ -38,7 +38,7 @@ def is_admin(user_id: int) -> bool:
 @router.callback_query(F.data == "broadcast_unsubscribe")
 async def broadcast_unsubscribe(callback: CallbackQuery):
     await set_broadcast_opt_out(callback.from_user.id, True)
-    await callback.answer("Broadcasts disabled.", show_alert=True)
+    await callback.answer("Рассылки отключены.", show_alert=True)
     if callback.message and callback.message.reply_markup:
         await callback.message.edit_reply_markup(reply_markup=None)
 
@@ -46,13 +46,13 @@ async def broadcast_unsubscribe(callback: CallbackQuery):
 @router.message(Command("unsubscribe"))
 async def unsubscribe_command(message: Message):
     await set_broadcast_opt_out(message.from_user.id, True)
-    await message.answer("Broadcast notifications disabled. Send /subscribe to enable them again.")
+    await message.answer("Уведомления рассылки отключены. Чтобы включить их снова, отправь /subscribe.")
 
 
 @router.message(Command("subscribe"))
 async def subscribe_command(message: Message):
     await set_broadcast_opt_out(message.from_user.id, False)
-    await message.answer("Broadcast notifications enabled.")
+    await message.answer("Уведомления рассылки включены.")
 
 
 @router.message(CommandStart())
