@@ -5,7 +5,7 @@ from aiogram.exceptions import TelegramRetryAfter
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.filters import Filter
+from aiogram.filters import Filter, Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardButton
 
@@ -356,6 +356,18 @@ async def send_broadcast_copy(bot: Bot, user_id: int, data: dict):
             text=data["broadcast_text"],
             reply_markup=markup,
         )
+
+
+@router.message(Command("broadcast"), IsAdmin())
+async def broadcast_command(message: Message, state: FSMContext):
+    await state.clear()
+    await state.set_state(BroadcastState.message)
+    builder = InlineKeyboardBuilder()
+    builder.row(InlineKeyboardButton(text="Cancel", callback_data="admin_cancel"))
+    await message.answer(
+        "Send text or a photo with a caption for your broadcast:",
+        reply_markup=builder.as_markup()
+    )
 
 
 @router.callback_query(F.data == "admin_broadcast", IsAdmin())
