@@ -1447,8 +1447,18 @@ async def api_profile_stats(
         ) as cursor:
             wholesale_orders_total = (await cursor.fetchone())[0]
 
+    # Resolve the currently configured bot name, including after a bot-token move.
+    bot_username = None
+    if bot:
+        try:
+            me = await bot.get_me()
+            bot_username = me.username
+        except Exception:
+            pass
+
     legacy_purchases = int(user["purchases_count"] or 0) if user else 0
     return {
+        "bot_username": bot_username,
         "client_no": int(user["client_no"]) if user and user["client_no"] else None,
         "orders_total": legacy_purchases + retail_orders_total + wholesale_orders_total,
         "referrals_total": referrals_total,
