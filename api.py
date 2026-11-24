@@ -1421,7 +1421,7 @@ async def api_profile_stats(
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            "SELECT client_no, purchases_count, successful_referrals, has_discount "
+            "SELECT client_no, successful_referrals, has_discount "
             "FROM users WHERE user_id = ?",
             (user_id,),
         ) as cursor:
@@ -1432,6 +1432,13 @@ async def api_profile_stats(
             (user_id,),
         ) as cursor:
             referrals_total = (await cursor.fetchone())[0]
+
+        async with db.execute(
+            "SELECT COUNT(*) FROM orders "
+            "WHERE user_id = ? AND status != 'cancelled'",
+            (user_id,),
+        ) as cursor:
+            legacy_orders_total = (await cursor.fetchone())[0]
 
         async with db.execute(
             "SELECT COUNT(*) FROM retail_orders "
@@ -1456,11 +1463,10 @@ async def api_profile_stats(
         except Exception:
             pass
 
-    legacy_purchases = int(user["purchases_count"] or 0) if user else 0
     return {
         "bot_username": bot_username,
         "client_no": int(user["client_no"]) if user and user["client_no"] else None,
-        "orders_total": legacy_purchases + retail_orders_total + wholesale_orders_total,
+        "orders_total": legacy_orders_total + retail_orders_total + wholesale_orders_total,
         "referrals_total": referrals_total,
         "successful_referrals": int(user["successful_referrals"] or 0) if user else 0,
         "has_discount": bool(user["has_discount"]) if user else False,
