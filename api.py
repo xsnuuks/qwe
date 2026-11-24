@@ -1407,6 +1407,56 @@ def verify_telegram_init_data(init_data: str) -> int:
     except (ValueError, KeyError, TypeError, json.JSONDecodeError):
         raise HTTPException(401, "Недействительная авторизация Telegram")
 
+@app.get("/api/profile/stats")
+async def api_profile_stats(
+    x_telegram_init_data: Optional[str] = Header(None),
+):
+    """Authenticated customer's lifetime order and referral counts.
+
+    Do not confuse successful_referrals with total invited users: the former
+    resets when a referral discount is awarded.
+    """
+    user_id = verify_telegram_init_data(x_telegram_init_data or "")
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT client_no, purchases_count, successful_referrals, has_discount "
+            "FROM users WHERE user_id = ?",
+            (user_id,),
+        ) as cursor:
+            user = await cursor.fetchone()
+
+        async with db.execute(
+            "SELECT COUNT(*) FROM users WHERE referrer_id = ?",
+            (user_id,),
+        ) as cursor:
+            referrals_total = (await cursor.fetchone())[0]
+
+        async with db.execute(
+            "SELECT COUNT(*) FROM retail_orders "
+            "WHERE user_id = ? AND status != 'cancelled'",
+            (user_id,),
+        ) as cursor:
+            retail_orders_total = (await cursor.fetchone())[0]
+
+        async with db.execute(
+            "SELECT COUNT(*) FROM wholesale_orders "
+            "WHERE user_id = ? AND status != 'cancelled'",
+            (user_id,),
+        ) as cursor:
+            wholesale_orders_total = (await cursor.fetchone())[0]
+
+    legacy_purchases = int(user["purchases_count"] or 0) if user else 0
+    return {
+        "client_no": int(user["client_no"]) if user and user["client_no"] else None,
+        "orders_total": legacy_purchases + retail_orders_total + wholesale_orders_total,
+        "referrals_total": referrals_total,
+        "successful_referrals": int(user["successful_referrals"] or 0) if user else 0,
+        "has_discount": bool(user["has_discount"]) if user else False,
+    }
+
+
 def get_telegram_username(init_data: str) -> str:
     import json
     from urllib.parse import parse_qsl
