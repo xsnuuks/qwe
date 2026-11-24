@@ -8,7 +8,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.filters import Filter, Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from aiogram.types import InlineKeyboardButton
+from aiogram.types import InlineKeyboardButton, WebAppInfo
 
 from config import ADMIN_ID
 from database import (
@@ -350,7 +350,7 @@ def format_broadcast_audience(stats: dict, live_enabled: bool) -> str:
 def broadcast_delivery_markup(include_store_button: bool):
     builder = InlineKeyboardBuilder()
     if include_store_button:
-        builder.row(InlineKeyboardButton(text="Открыть магазин", url=BROADCAST_STORE_URL))
+        builder.row(InlineKeyboardButton(text="Открыть магазин", web_app=WebAppInfo(url=BROADCAST_STORE_URL)))
     builder.row(
         InlineKeyboardButton(text="Отписаться", callback_data="broadcast_unsubscribe")
     )
