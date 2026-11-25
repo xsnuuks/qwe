@@ -41,7 +41,8 @@ jobs:
                   assert ts
                   users = await database.get_users_count()
                   assert users == 1, users
-                  await database.init_db()
+                  with patch('os.makedirs'):
+                      await database.init_db()
                   data2 = await database.get_new_bot_starters()
                   assert data2['users'][0]['new_bot_started_at'] == ts, data2
                   print("Database /start tracking checks passed")
