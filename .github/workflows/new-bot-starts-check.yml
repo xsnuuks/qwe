@@ -20,6 +20,7 @@ jobs:
           from pathlib import Path
           import aiosqlite
           import database
+          from unittest.mock import patch
 
           async def test():
               with tempfile.TemporaryDirectory() as tmp:
@@ -29,7 +30,8 @@ jobs:
                       await db.execute("CREATE TABLE users (user_id INTEGER PRIMARY KEY, username TEXT, full_name TEXT, language TEXT, referrer_id INTEGER, referrals_count INTEGER DEFAULT 0, successful_referrals INTEGER DEFAULT 0, purchases_count INTEGER DEFAULT 0, has_discount INTEGER DEFAULT 0, is_blocked INTEGER DEFAULT 0, created_at TEXT)")
                       await db.execute("INSERT INTO users (user_id, username, full_name) VALUES (11, 'oldhandle', 'Old customer')")
                       await db.commit()
-                  await database.init_db()
+                  with patch('os.makedirs'):
+                      await database.init_db()
                   await database.record_new_bot_start(11, 'updatedhandle', 'New Name')
                   await database.record_new_bot_start(11, 'updatedagain', 'New Name')
                   data = await database.get_new_bot_starters()
