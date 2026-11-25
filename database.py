@@ -53,6 +53,17 @@ async def init_db():
             await db.execute("ALTER TABLE users ADD COLUMN is_blocked INTEGER DEFAULT 0")
         except Exception:
             pass
+        # Keep all historical users; track only explicit /start on the new bot.
+        try:
+            await db.execute("ALTER TABLE users ADD COLUMN new_bot_started_at TEXT")
+        except aiosqlite.OperationalError as exc:
+            if "duplicate column name" not in str(exc).lower():
+                raise
+        try:
+            await db.execute("ALTER TABLE users ADD COLUMN broadcast_opt_out INTEGER DEFAULT 0")
+        except aiosqlite.OperationalError as exc:
+            if "duplicate column name" not in str(exc).lower():
+                raise
         try:
             await db.execute("ALTER TABLE orders ADD COLUMN city TEXT")
         except Exception:
@@ -415,6 +426,39 @@ async def create_user(user_id: int, username: str = None, full_name: str = None,
     await assign_client_no(user_id)
 
 
+async def record_new_bot_start(user_id: int, username: str | None, full_name: str | None) -> None:
+    """Record the first /start on the new bot; refresh its current public username."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """UPDATE users
+               SET new_bot_started_at = COALESCE(new_bot_started_at, ?),
+                   username = ?, full_name = ?
+               WHERE user_id = ?""",
+            (datetime.now().isoformat(), username, full_name, user_id),
+        )
+        await db.commit()
+
+
+async def get_new_bot_starters(page: int = 0, per_page: int = 20):
+    page = max(0, page)
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT user_id, username, full_name, new_bot_started_at
+               FROM users
+               WHERE new_bot_started_at IS NOT NULL
+               ORDER BY new_bot_started_at DESC, user_id DESC
+               LIMIT ? OFFSET ?""",
+            (per_page, page * per_page),
+        ) as cursor:
+            users = [dict(row) for row in await cursor.fetchall()]
+        async with db.execute(
+            "SELECT COUNT(*) FROM users WHERE new_bot_started_at IS NOT NULL"
+        ) as cursor:
+            total = (await cursor.fetchone())[0]
+    return {"users": users, "total": total, "page": page}
+
+
 async def update_user_language(user_id: int, language: str):
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("UPDATE users SET language = ? WHERE user_id = ?", (language, user_id))
@@ -639,9 +683,53 @@ async def get_stats_period(period: str = "all") -> dict:
         return {"orders": orders, "revenue": revenue}
 
 
+async def set_broadcast_opt_out(user_id: int, opted_out: bool) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE users SET broadcast_opt_out = ? WHERE user_id = ?",
+            (int(opted_out), user_id)
+        )
+        await db.commit()
+
+
+async def get_broadcast_audience_stats(admin_id: int) -> Dict[str, int]:
+    """Count stored users and eligible recipients without exposing user identities.
+
+    An eligible user may still have blocked the Telegram bot; actual delivery
+    is known only after a send attempt.
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            """
+            SELECT
+                COUNT(*) AS registered,
+                COALESCE(SUM(CASE WHEN COALESCE(is_blocked, 0) != 0
+                                  THEN 1 ELSE 0 END), 0) AS blocked,
+                COALESCE(SUM(CASE WHEN COALESCE(is_blocked, 0) = 0
+                                       AND COALESCE(broadcast_opt_out, 0) != 0
+                                  THEN 1 ELSE 0 END), 0) AS opted_out,
+                COALESCE(SUM(CASE WHEN COALESCE(is_blocked, 0) = 0
+                                       AND COALESCE(broadcast_opt_out, 0) = 0
+                                       AND user_id = ?
+                                  THEN 1 ELSE 0 END), 0) AS admin_excluded,
+                COALESCE(SUM(CASE WHEN COALESCE(is_blocked, 0) = 0
+                                       AND COALESCE(broadcast_opt_out, 0) = 0
+                                       AND user_id != ?
+                                  THEN 1 ELSE 0 END), 0) AS eligible
+            FROM users
+            """,
+            (admin_id, admin_id),
+        ) as cursor:
+            row = await cursor.fetchone()
+    return dict(zip(
+        ("registered", "blocked", "opted_out", "admin_excluded", "eligible"),
+        (int(value or 0) for value in row),
+    ))
+
+
 async def get_all_user_ids() -> List[int]:
     async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute("SELECT user_id FROM users WHERE is_blocked = 0") as cursor:
+        async with db.execute("SELECT user_id FROM users WHERE is_blocked = 0 AND COALESCE(broadcast_opt_out, 0) = 0") as cursor:
             rows = await cursor.fetchall()
             return [row[0] for row in rows]
 

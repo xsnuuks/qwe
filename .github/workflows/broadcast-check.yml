@@ -1,0 +1,81 @@
+name: Broadcast branch checks
+
+on:
+  push:
+    branches:
+      - feature/broadcast-v2
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  syntax-and-imports:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile Python files
+        run: python -m compileall -q .
+      - name: Install requirements
+        run: python -m pip install -r requirements.txt
+      - name: Import bot handlers without running Telegram bot
+        env:
+          BOT_TOKEN: '123456:TEST_TOKEN'
+          ADMIN_ID: '12345'
+        run: |
+          python - <<'PY'
+          from handlers import admin, user
+          assert admin.router is not None
+          assert user.router is not None
+          assert hasattr(admin, "broadcast_command")
+          assert hasattr(admin, "send_broadcast_copy")
+          assert hasattr(user, "broadcast_unsubscribe")
+          from unittest.mock import patch
+          with patch.dict("os.environ", {}, clear=True):
+              assert admin.broadcast_live_enabled() is False
+          with patch.dict("os.environ", {"BROADCAST_LIVE_ENABLED": "false"}):
+              assert admin.broadcast_live_enabled() is False
+          with patch.dict("os.environ", {"BROADCAST_LIVE_ENABLED": "true"}):
+              assert admin.broadcast_live_enabled() is True
+          assert admin.broadcast_recipient_ids(12345, [1, 2, 3], False) == [12345]
+          assert admin.broadcast_recipient_ids(12345, [12345, 1, 2], True) == [1, 2]
+          import asyncio
+          import tempfile
+          from pathlib import Path
+          import aiosqlite
+          import database
+
+          assert admin.format_broadcast_audience({
+              "registered": 4, "blocked": 1, "opted_out": 1,
+              "admin_excluded": 1, "eligible": 1
+          }, False).count("\n") >= 6
+
+          async def check_stats():
+              with tempfile.TemporaryDirectory() as tmp:
+                  database.DB_PATH = str(Path(tmp) / "broadcast-test.db")
+                  async with aiosqlite.connect(database.DB_PATH) as db:
+                      await db.execute(
+                          "CREATE TABLE users (user_id INTEGER, is_blocked INTEGER, broadcast_opt_out INTEGER)"
+                      )
+                      await db.executemany(
+                          "INSERT INTO users VALUES (?, ?, ?)",
+                          [(10, 0, 0), (11, 0, 0), (12, 1, 0),
+                           (13, 0, 1), (14, 0, 0)]
+                      )
+                      await db.commit()
+                  result = await database.get_broadcast_audience_stats(10)
+                  assert result == {
+                      "registered": 5, "blocked": 1, "opted_out": 1,
+                      "admin_excluded": 1, "eligible": 2
+                  }, result
+                  assert await database.get_all_user_ids() == [10, 11, 14]
+
+          asyncio.run(check_stats())
+          print("Broadcast audience count tests OK")
+          print("Handler imports and broadcast entry points OK")
+          PY

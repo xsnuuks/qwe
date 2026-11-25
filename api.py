@@ -24,6 +24,7 @@ from database import (
     get_user,
     get_users_count,
     get_users_page,
+    get_new_bot_starters,
     set_user_blocked,
     update_product,add_message,
     get_messages,
@@ -1406,6 +1407,84 @@ def verify_telegram_init_data(init_data: str) -> int:
 
     except (ValueError, KeyError, TypeError, json.JSONDecodeError):
         raise HTTPException(401, "Недействительная авторизация Telegram")
+
+@app.get("/api/admin/new-bot-clients")
+async def api_admin_new_bot_clients(
+    page: int = 0,
+    x_telegram_init_data: Optional[str] = Header(None),
+):
+    """List confirmed /start users only; never alter the shared customer base."""
+    user_id = verify_telegram_init_data(x_telegram_init_data or "")
+    if user_id != int(ADMIN_ID):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return await get_new_bot_starters(page=max(0, page), per_page=20)
+
+
+@app.get("/api/profile/stats")
+async def api_profile_stats(
+    x_telegram_init_data: Optional[str] = Header(None),
+):
+    """Authenticated customer's lifetime order and referral counts.
+
+    Do not confuse successful_referrals with total invited users: the former
+    resets when a referral discount is awarded.
+    """
+    user_id = verify_telegram_init_data(x_telegram_init_data or "")
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT client_no, successful_referrals, has_discount "
+            "FROM users WHERE user_id = ?",
+            (user_id,),
+        ) as cursor:
+            user = await cursor.fetchone()
+
+        async with db.execute(
+            "SELECT COUNT(*) FROM users WHERE referrer_id = ?",
+            (user_id,),
+        ) as cursor:
+            referrals_total = (await cursor.fetchone())[0]
+
+        async with db.execute(
+            "SELECT COUNT(*) FROM orders "
+            "WHERE user_id = ? AND status != 'cancelled'",
+            (user_id,),
+        ) as cursor:
+            legacy_orders_total = (await cursor.fetchone())[0]
+
+        async with db.execute(
+            "SELECT COUNT(*) FROM retail_orders "
+            "WHERE user_id = ? AND status != 'cancelled'",
+            (user_id,),
+        ) as cursor:
+            retail_orders_total = (await cursor.fetchone())[0]
+
+        async with db.execute(
+            "SELECT COUNT(*) FROM wholesale_orders "
+            "WHERE user_id = ? AND status != 'cancelled'",
+            (user_id,),
+        ) as cursor:
+            wholesale_orders_total = (await cursor.fetchone())[0]
+
+    # Resolve the currently configured bot name, including after a bot-token move.
+    bot_username = None
+    if bot:
+        try:
+            me = await bot.get_me()
+            bot_username = me.username
+        except Exception:
+            pass
+
+    return {
+        "bot_username": bot_username,
+        "client_no": int(user["client_no"]) if user and user["client_no"] else None,
+        "orders_total": legacy_orders_total + retail_orders_total + wholesale_orders_total,
+        "referrals_total": referrals_total,
+        "successful_referrals": int(user["successful_referrals"] or 0) if user else 0,
+        "has_discount": bool(user["has_discount"]) if user else False,
+    }
+
 
 def get_telegram_username(init_data: str) -> str:
     import json
