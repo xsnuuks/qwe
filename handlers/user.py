@@ -12,6 +12,7 @@ from database import (
     get_all_products, get_product, create_order, use_discount,
     add_to_cart, get_cart, remove_from_cart, update_cart_quantity,
     clear_cart, get_cart_count, set_referrer_if_empty, set_broadcast_opt_out,
+    record_new_bot_start,
 )
 from keyboards import (
     language_keyboard, main_menu_keyboard, catalog_keyboard,
@@ -81,6 +82,9 @@ async def cmd_start(message: Message, command: CommandObject, bot: Bot, lang: st
                 await set_referrer(user_id, referrer_id)
             except Exception:
                 pass
+
+    # Record an explicit /start (not a Mini App visit or a legacy user record).
+    await record_new_bot_start(user_id, username, full_name)
 
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
