@@ -1,0 +1,50 @@
+name: New bot starts check
+on:
+  push:
+    branches: [feature/new-bot-starts]
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - run: python -m compileall -q .
+      - name: Test migration and tracking with temporary database
+        run: |
+          python - <<'PY'
+          import asyncio, tempfile
+          from pathlib import Path
+          import aiosqlite
+          import database
+          from unittest.mock import patch
+
+          async def test():
+              with tempfile.TemporaryDirectory() as tmp:
+                  database.DB_PATH = str(Path(tmp) / "test.db")
+                  # Existing customer should survive migration.
+                  async with aiosqlite.connect(database.DB_PATH) as db:
+                      await db.execute("CREATE TABLE users (user_id INTEGER PRIMARY KEY, username TEXT, full_name TEXT, language TEXT, referrer_id INTEGER, referrals_count INTEGER DEFAULT 0, successful_referrals INTEGER DEFAULT 0, purchases_count INTEGER DEFAULT 0, has_discount INTEGER DEFAULT 0, is_blocked INTEGER DEFAULT 0, created_at TEXT)")
+                      await db.execute("INSERT INTO users (user_id, username, full_name) VALUES (11, 'oldhandle', 'Old customer')")
+                      await db.commit()
+                  with patch('os.makedirs'):
+                      await database.init_db()
+                  await database.record_new_bot_start(11, 'updatedhandle', 'New Name')
+                  await database.record_new_bot_start(11, 'updatedagain', 'New Name')
+                  data = await database.get_new_bot_starters()
+                  assert data['total'] == 1, data
+                  assert data['users'][0]['username'] == 'updatedagain', data
+                  ts = data['users'][0]['new_bot_started_at']
+                  assert ts
+                  users = await database.get_users_count()
+                  assert users == 1, users
+                  with patch('os.makedirs'):
+                      await database.init_db()
+                  data2 = await database.get_new_bot_starters()
+                  assert data2['users'][0]['new_bot_started_at'] == ts, data2
+                  print("Database /start tracking checks passed")
+          asyncio.run(test())
+          PY

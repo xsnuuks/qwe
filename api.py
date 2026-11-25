@@ -24,6 +24,7 @@ from database import (
     get_user,
     get_users_count,
     get_users_page,
+    get_new_bot_starters,
     set_user_blocked,
     update_product,add_message,
     get_messages,
@@ -1406,6 +1407,18 @@ def verify_telegram_init_data(init_data: str) -> int:
 
     except (ValueError, KeyError, TypeError, json.JSONDecodeError):
         raise HTTPException(401, "Недействительная авторизация Telegram")
+
+@app.get("/api/admin/new-bot-clients")
+async def api_admin_new_bot_clients(
+    page: int = 0,
+    x_telegram_init_data: Optional[str] = Header(None),
+):
+    """List confirmed /start users only; never alter the shared customer base."""
+    user_id = verify_telegram_init_data(x_telegram_init_data or "")
+    if user_id != int(ADMIN_ID):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return await get_new_bot_starters(page=max(0, page), per_page=20)
+
 
 @app.get("/api/profile/stats")
 async def api_profile_stats(

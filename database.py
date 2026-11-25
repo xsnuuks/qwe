@@ -53,6 +53,12 @@ async def init_db():
             await db.execute("ALTER TABLE users ADD COLUMN is_blocked INTEGER DEFAULT 0")
         except Exception:
             pass
+        # Keep all historical users; track only explicit /start on the new bot.
+        try:
+            await db.execute("ALTER TABLE users ADD COLUMN new_bot_started_at TEXT")
+        except aiosqlite.OperationalError as exc:
+            if "duplicate column name" not in str(exc).lower():
+                raise
         try:
             await db.execute("ALTER TABLE users ADD COLUMN broadcast_opt_out INTEGER DEFAULT 0")
         except aiosqlite.OperationalError as exc:
@@ -418,6 +424,39 @@ async def create_user(user_id: int, username: str = None, full_name: str = None,
         )
         await db.commit()
     await assign_client_no(user_id)
+
+
+async def record_new_bot_start(user_id: int, username: str | None, full_name: str | None) -> None:
+    """Record the first /start on the new bot; refresh its current public username."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """UPDATE users
+               SET new_bot_started_at = COALESCE(new_bot_started_at, ?),
+                   username = ?, full_name = ?
+               WHERE user_id = ?""",
+            (datetime.now().isoformat(), username, full_name, user_id),
+        )
+        await db.commit()
+
+
+async def get_new_bot_starters(page: int = 0, per_page: int = 20):
+    page = max(0, page)
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT user_id, username, full_name, new_bot_started_at
+               FROM users
+               WHERE new_bot_started_at IS NOT NULL
+               ORDER BY new_bot_started_at DESC, user_id DESC
+               LIMIT ? OFFSET ?""",
+            (per_page, page * per_page),
+        ) as cursor:
+            users = [dict(row) for row in await cursor.fetchall()]
+        async with db.execute(
+            "SELECT COUNT(*) FROM users WHERE new_bot_started_at IS NOT NULL"
+        ) as cursor:
+            total = (await cursor.fetchone())[0]
+    return {"users": users, "total": total, "page": page}
 
 
 async def update_user_language(user_id: int, language: str):
